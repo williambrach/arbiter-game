@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { modelConfig, loadEndpoints, buildMessages, buildThreadMessages, answerInterview, answerThread, InterviewProviderError } from '../server/interviews.mjs';
@@ -70,6 +70,27 @@ test('missing_key_names_variable: an unset keyEnv names the variable and no key'
 test('duplicate_names_rejected', () => {
   const entry = { name: 'a', baseUrl: 'https://a.test/v1', model: 'ma', keyEnv: 'K' };
   assert.throws(() => loadEndpoints({ OVERRIDE_ENDPOINTS: '/e', K: 'k' }, () => JSON.stringify([entry, { ...entry, model: 'mb' }])), /used twice/);
+});
+
+test('allowHttp: plain HTTP to a non-local host only when the endpoint opts in', () => {
+  const file = extra => () => JSON.stringify([{ name: 'a', baseUrl: 'http://10.1.2.3:8000/v1', model: 'ma', keyEnv: 'K', ...extra }]);
+  const env = { OVERRIDE_ENDPOINTS: '/e', K: 'k' };
+  assert.throws(() => loadEndpoints(env, file({})), /HTTPS/);
+  assert.throws(() => loadEndpoints(env, file({ allowHttp: false })), /HTTPS/);
+  const [endpoint] = loadEndpoints(env, file({ allowHttp: true })).endpoints;
+  assert.equal(endpoint.baseUrl, 'http://10.1.2.3:8000/v1');
+  assert.equal(endpoint.allowHttp, true);
+  assert.throws(() => loadEndpoints(env, file({ allowHttp: 'yes' })), /allowHttp must be true or false/);
+  assert.notEqual(loadEndpoints(env, file({ allowHttp: true })).hash, loadEndpoints({ ...env }, () => JSON.stringify([{ name: 'a', baseUrl: 'http://localhost:8000/v1', model: 'ma', keyEnv: 'K' }])).hash);
+});
+
+test('the shipyard endpoints file loads: glm, deepseek, qwen, mimir in order', () => {
+  const path = new URL('../ops/endpoints.shipyard.json', import.meta.url);
+  const { endpoints } = loadEndpoints({ OVERRIDE_ENDPOINTS: 'x', OVERRIDE_LLM_API_KEY: 'k1', OVERRIDE_SELFHOSTED_KEY: 'none' }, () => readFileSync(path, 'utf8'));
+  assert.deepEqual(endpoints.map(e => e.name), ['glm', 'deepseek', 'qwen', 'mimir']);
+  assert.equal(endpoints[2].allowHttp, true);
+  assert.equal(endpoints[2].key, 'none');
+  assert.equal(endpoints[0].allowHttp, undefined);
 });
 
 test('public_http_rejected: only HTTPS or localhost HTTP', () => {

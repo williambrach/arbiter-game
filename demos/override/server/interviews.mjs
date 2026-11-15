@@ -22,12 +22,13 @@ function integerSetting(value, fallback, name, minimum, maximum) {
   return number;
 }
 
-function checkBaseUrl(raw, label = 'The model endpoint') {
+function checkBaseUrl(raw, label = 'The model endpoint', { allowHttp = false } = {}) {
   const baseUrl = String(raw).replace(/\/$/, '');
   let parsed;
   try { parsed = new URL(baseUrl); } catch { throw new Error(`${label} must have a valid baseUrl.`); }
-  if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname))) {
-    throw new Error(`${label} must use HTTPS (HTTP is allowed for a local model).`);
+  const plainOk = parsed.protocol === 'http:' && (allowHttp || ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname));
+  if (parsed.protocol !== 'https:' && !plainOk) {
+    throw new Error(`${label} must use HTTPS (HTTP is allowed for a local model, or with allowHttp).`);
   }
   return baseUrl;
 }
@@ -39,7 +40,7 @@ export const DEFAULT_EFFORT = 'low';
 
 // The hash covers everything but the key, so two machines with different keys but the same routing agree.
 const hashEndpoints = endpoints => createHash('sha256')
-  .update(JSON.stringify(endpoints.map(({ name, baseUrl, model, keyEnv, maxInFlight, tokenParam, timeoutMs, temperature, reasoningEffort, stream }) => ({ name, baseUrl, model, keyEnv, maxInFlight, tokenParam, timeoutMs, temperature, reasoningEffort, stream }))))
+  .update(JSON.stringify(endpoints.map(({ name, baseUrl, model, keyEnv, maxInFlight, tokenParam, timeoutMs, temperature, reasoningEffort, stream, allowHttp }) => ({ name, baseUrl, model, keyEnv, maxInFlight, tokenParam, timeoutMs, temperature, reasoningEffort, stream, allowHttp }))))
   .digest('hex').slice(0, 16);
 
 export function loadEndpoints(env = process.env, readFile = path => readFileSync(path, 'utf8')) {
@@ -66,11 +67,13 @@ export function loadEndpoints(env = process.env, readFile = path => readFileSync
     const reasoningEffort = raw.reasoningEffort === undefined ? DEFAULT_EFFORT : raw.reasoningEffort === 'none' ? null : raw.reasoningEffort;
     if (reasoningEffort !== null && !EFFORTS.includes(reasoningEffort)) throw new Error(`${label}: reasoningEffort must be low, medium, high or none.`);
     if (raw.stream !== undefined && typeof raw.stream !== 'boolean') throw new Error(`${label}: stream must be true or false.`);
+    if (raw.allowHttp !== undefined && typeof raw.allowHttp !== 'boolean') throw new Error(`${label}: allowHttp must be true or false.`);
     return {
-      name, baseUrl: checkBaseUrl(raw.baseUrl ?? '', label), model: model.trim(), key, keyEnv,
+      name, baseUrl: checkBaseUrl(raw.baseUrl ?? '', label, { allowHttp: raw.allowHttp === true }), model: model.trim(), key, keyEnv,
       maxInFlight: integerSetting(raw.maxInFlight, 200, `${label}: maxInFlight`, 1, 1000), tokenParam,
       timeoutMs: integerSetting(raw.timeoutMs, 25_000, `${label}: timeoutMs`, 1000, 120_000), temperature, reasoningEffort,
       ...(raw.stream === false ? { stream: false } : {}),
+      ...(raw.allowHttp === true ? { allowHttp: true } : {}),
     };
   });
   return { endpoints, hash: hashEndpoints(endpoints) };
