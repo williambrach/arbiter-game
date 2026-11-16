@@ -64,5 +64,5 @@ test('coin_budget_env_is_ignored', async t => {
   const r = await g.post('continue');
   assert.equal(r.status, 200);
   assert.equal(r.body.session.economy.budget, null);
-  assert.equal(r.body.session.economy.charges.inspect.max, 1);
+  assert.equal(r.body.session.economy.charges.inspect.max, null);
 });

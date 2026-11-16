@@ -1,7 +1,7 @@
 {
   "tools.hint.coins": "Every question and tool costs coins.",
   "tools.hint.ask": "Ask one question; only this character hears it.",
-  "tools.hint.inspect": "See how this character reasoned about their last line. Rare.",
+  "tools.hint.inspect": "See how this character reasoned about their last line.",
   "tools.hint.continue": "They talk among themselves, one line each.",
   "tools.hint.coinsTalk": "Typed questions cost coins. Topics and “What did you mean?” are free.",
   "tools.notInCase": "Not in this case",

@@ -33,7 +33,7 @@ function checkBaseUrl(raw, label = 'The model endpoint', { allowHttp = false } =
   return baseUrl;
 }
 
-const EFFORTS = ['low', 'medium', 'high'];
+const EFFORTS = ['low', 'medium', 'high', 'xhigh'];
 // Unset means low: providers such as SDU default to max, which spends the whole budget thinking.
 // "none" (or null in an endpoints file) sends no reasoning_effort, for a model that rejects the field.
 export const DEFAULT_EFFORT = 'low';
@@ -65,7 +65,7 @@ export function loadEndpoints(env = process.env, readFile = path => readFileSync
     const temperature = raw.temperature ?? null;
     if (temperature !== null && !(typeof temperature === 'number' && temperature >= 0 && temperature <= 2)) throw new Error(`${label}: temperature must be a number between 0 and 2.`);
     const reasoningEffort = raw.reasoningEffort === undefined ? DEFAULT_EFFORT : raw.reasoningEffort === 'none' ? null : raw.reasoningEffort;
-    if (reasoningEffort !== null && !EFFORTS.includes(reasoningEffort)) throw new Error(`${label}: reasoningEffort must be low, medium, high or none.`);
+    if (reasoningEffort !== null && !EFFORTS.includes(reasoningEffort)) throw new Error(`${label}: reasoningEffort must be low, medium, high, xhigh or none.`);
     if (raw.stream !== undefined && typeof raw.stream !== 'boolean') throw new Error(`${label}: stream must be true or false.`);
     if (raw.allowHttp !== undefined && typeof raw.allowHttp !== 'boolean') throw new Error(`${label}: allowHttp must be true or false.`);
     return {
@@ -91,7 +91,7 @@ export function modelConfig(env = process.env) {
   };
   const effortSetting = env.OVERRIDE_LLM_REASONING_EFFORT?.trim() || DEFAULT_EFFORT;
   const effortRaw = effortSetting === 'none' ? null : effortSetting;
-  if (effortRaw !== null && !EFFORTS.includes(effortRaw)) throw new Error('OVERRIDE_LLM_REASONING_EFFORT must be low, medium, high or none.');
+  if (effortRaw !== null && !EFFORTS.includes(effortRaw)) throw new Error('OVERRIDE_LLM_REASONING_EFFORT must be low, medium, high, xhigh or none.');
   // Interview answers stream token by token unless switched off.
   const stream = !['0', 'off', 'false'].includes((env.OVERRIDE_LLM_STREAM ?? '1').trim().toLowerCase());
   // Optional: one seed for every game's "Let them talk" order, to replay a run.

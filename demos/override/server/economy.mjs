@@ -8,8 +8,8 @@ const LABELS = { inspect: 'reasoning inspections', continue: 'conversations' };
 // A game must be able to ask every agent once, in the largest registered world.
 export const minimumBudget = () => COSTS.ask * Math.max(...Object.values(worlds).map(w => w.agents));
 
-// Production games have no coin budget, 1 reasoning inspection and 3 talk rounds. Tests pass a budget to exercise the coin rules.
-export function economyRules({ budget = null, inspect = 1 } = {}) {
+// Production games have no coin budget, unlimited reasoning inspections (each costs coins, 5) and 3 talk rounds. A charge max of null means no use limit. Tests pass a budget to exercise the coin rules.
+export function economyRules({ budget = null, inspect = null } = {}) {
   return { budget, costs: { ...COSTS }, charges: { inspect, continue: 3 } };
 }
 
@@ -30,7 +30,7 @@ export function quote(wallet, tools, reserve) {
   const cost = tools.reduce((sum, t) => sum + (wallet.costs[t] ?? 0), 0);
   for (const t of tools) {
     const c = wallet.charges[t];
-    if (c && c.used >= c.max) return { cost, ok: false, reason: `No ${LABELS[t]} left.` };
+    if (c && c.max != null && c.used >= c.max) return { cost, ok: false, reason: `No ${LABELS[t]} left.` };
   }
   if (wallet.budget == null) return { cost, ok: true, reason: null };
   const left = wallet.budget - wallet.spent;
