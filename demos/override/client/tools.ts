@@ -42,7 +42,7 @@ export function coinLabel(e: Economy): string {
 function left(e: Economy, tool: Tool): number | null {
   if (tool === 'ask') return null;
   const c = e.charges[tool];
-  return c.max - c.used;
+  return c.max == null ? null : c.max - c.used;
 }
 
 export function toolChip(e: Economy, tool: Tool): string {
@@ -71,7 +71,7 @@ export function toolBlock(e: Economy, tool: Tool, reserve: number): { enabled: b
 /** The briefing's list of Arbiter tools with their prices. */
 export function toolGuide(e: Economy): string {
   const rows = ARBITER_TOOLS.map(t => `<li><span class="tool-icon">${svg(t.icon)}</span><span class="tool-text"><b>${esc(t.name)}</b><small>${esc(t.does)}</small></span>` +
-    `<em>${esc(plural(e.costs[t.tool]))} · ${tn('tools.use', e.charges[t.tool].max)}</em></li>`).join('');
+    `<em>${esc(plural(e.costs[t.tool]))}${e.charges[t.tool].max == null ? '' : ` · ${tn('tools.use', e.charges[t.tool].max!)}`}</em></li>`).join('');
   return `<ul class="tool-guide">${rows}</ul>`;
 }
 

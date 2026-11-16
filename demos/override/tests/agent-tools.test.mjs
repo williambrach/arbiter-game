@@ -15,7 +15,7 @@ const withFns = { ...banana, rehearsalReasoning: p => `R:{${p}}`, rehearsalChatt
 const identity = ids => [...ids];
 const ok = async () => 'fine';
 
-function setup(t, { rules = { budget: 15 }, kase = withFns, answer = ok, shuffle = identity, order = identity } = {}) {
+function setup(t, { rules = { budget: 15, inspect: 1 }, kase = withFns, answer = ok, shuffle = identity, order = identity } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'override-tools-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const config = { ...modelConfig({}), economy: economyRules(rules) };
@@ -73,6 +73,15 @@ test('inspect_twice_with_two_charges', async t => {
   await act('inspect', { character: 'momo' });
   await act('inspect', { character: 'momo' });
   assert.equal(g.session.inspections.length, 2);
+});
+
+test('inspect_without_limit_costs_coins_each_time', async t => {
+  const { act, ask, g } = await begun(t, { rules: {} });
+  await ask();
+  for (let i = 0; i < 4; i++) await act('inspect', { character: 'momo' });
+  assert.equal(g.session.inspections.length, 4);
+  assert.equal(g.session.economy.charges.inspect.used, 4);
+  assert.equal(g.session.economy.spent, 2 + 4 * 5);
 });
 
 test('inspect_no_function_409', async t => {

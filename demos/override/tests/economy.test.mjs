@@ -4,11 +4,22 @@ import { worlds } from '../server/worlds.mjs';
 import { economyRules, createWallet, quote, spend, minimumBudget } from '../server/economy.mjs';
 
 const COSTS = { ask: 2, inspect: 5, continue: 1 };
-const fresh = (opts = { budget: 15 }) => createWallet(economyRules(opts));
+const fresh = (opts = { budget: 15, inspect: 1 }) => createWallet(economyRules(opts));
 
 test('rules_defaults', () => {
-  assert.deepEqual(economyRules(), { budget: null, costs: COSTS, charges: { inspect: 1, continue: 3 } });
+  assert.deepEqual(economyRules(), { budget: null, costs: COSTS, charges: { inspect: null, continue: 3 } });
   assert.deepEqual(economyRules({ budget: 15, inspect: 2 }), { budget: 15, costs: COSTS, charges: { inspect: 2, continue: 3 } });
+});
+
+test('inspect_without_limit_only_costs_coins', () => {
+  const w = createWallet(economyRules());
+  assert.equal(w.charges.inspect.max, null);
+  for (let i = 1; i <= 20; i++) {
+    assert.deepEqual(quote(w, ['inspect'], 0), { cost: 5, ok: true, reason: null });
+    spend(w, ['inspect']);
+    assert.equal(w.spent, 5 * i);
+    assert.equal(w.charges.inspect.used, i);
+  }
 });
 
 test('wallet_shape', () => {

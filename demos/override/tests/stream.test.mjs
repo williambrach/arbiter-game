@@ -12,6 +12,7 @@ import { readJsonl } from '../server/dataset.mjs';
 import { defineCase } from '../server/cases.mjs';
 import { partCase, agentWorlds } from './fixtures/minimal-case.mjs';
 import { until } from './helpers/until.mjs';
+import { economyRules } from '../server/economy.mjs';
 
 // A sink that records every line, plus the raw sequence for assertions.
 function collectingSink() {
@@ -29,10 +30,10 @@ const joined = (lines, t, a) => {
   return out;
 };
 
-function liveGames(t, { answer, thread, cases = null, extraConfig = {} } = {}) {
+function liveGames(t, { answer, thread, cases = null, extraConfig = {}, overrides = {} } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'override-stream-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const config = modelConfig({ OVERRIDE_LLM_API_KEY: 'k', OVERRIDE_LLM_MODEL: 'm', ...extraConfig });
+  const config = { ...modelConfig({ OVERRIDE_LLM_API_KEY: 'k', OVERRIDE_LLM_MODEL: 'm', ...extraConfig }), ...overrides };
   const games = new Investigations({ dataDir: dir, config, cases: cases ?? [kase3], shuffle: ids => [...ids], answer, thread });
   return { dir, games, config, events: id => readJsonl(join(dir, 'sessions', `${id}.jsonl`)) };
 }
@@ -162,8 +163,8 @@ test('a live watch must name the interview in flight: wrong id, wrong character 
   assert.equal(late.session.economy.charges.inspect.used, 1);
 });
 
-async function settledLine(t, reasoning) {
-  const { games } = liveGames(t, { answer: async (cfg, k, s, cid, q, ctx) => {
+async function settledLine(t, reasoning, overrides = {}) {
+  const { games } = liveGames(t, { overrides, answer: async (cfg, k, s, cid, q, ctx) => {
     ctx.onDelta?.('c1', 'content', 'Hi.');
     return { answer: 'Hi.', provenance: { endpoint: 'a' }, reasoning };
   } });
@@ -186,7 +187,7 @@ test('a late live Watch without a revision inspects the settled line: one charge
 });
 
 test('a repeat late Watch behaves like a repeat Inspect', async t => {
-  const a = await settledLine(t, 'I did think');
+  const a = await settledLine(t, 'I did think', { economy: economyRules({ inspect: 1 }) });
   const input = { sessionId: a.id, character: 'momo', live: true, questionEventId: a.qe };
   await a.games.mutate(a.id, 'inspect', input);
   const first = a.games.find(a.id).session.revision;

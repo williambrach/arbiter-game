@@ -53,7 +53,7 @@ export interface CaseState {
 export type Tool = 'ask' | 'inspect' | 'continue';
 export interface Economy {
   budget: number | null; spent: number; costs: Record<Tool, number>;
-  charges: Record<'inspect' | 'continue', { max: number; used: number }>;
+  charges: Record<'inspect' | 'continue', { max: number | null; used: number }>;
 }
 export interface ThreadLine { character: CharacterId; text: string; round: number; timestamp: string }
 export interface Inspection { character: CharacterId; sourceEventId: string; reasoning: string; timestamp: string }

@@ -19,6 +19,16 @@ test('tool_chip', () => {
   assert.equal(toolChip(eco(null, 0, { continue: 3 }), 'continue'), '0 left');
 });
 
+test('inspect_without_limit_shows_only_the_price', () => {
+  const e = eco(null, 0, {});
+  e.charges.inspect = { max: null, used: 7 };
+  assert.deepEqual(toolBlock(e, 'inspect', 0), { enabled: true, reason: null });
+  assert.equal(toolChip(e, 'inspect'), '5 coins');
+  assert.ok(!/null|NaN/.test(toolGuide(e)));
+  assert.ok(toolGuide(e).includes('<em>5 coins</em>'));
+  assert.ok(toolGuide(e).includes('<em>1 coin · 3 uses</em>'));
+});
+
 test('tool_block', () => {
   assert.deepEqual(toolBlock(eco(15, 0, { continue: 3 }), 'continue', 0), { enabled: false, reason: '0 left' });
   assert.deepEqual(toolBlock(eco(15, 12), 'inspect', 0), { enabled: false, reason: 'Not enough coins' });
