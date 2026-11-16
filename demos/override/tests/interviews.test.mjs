@@ -90,7 +90,15 @@ test('the shipyard endpoints file loads: glm, deepseek, qwen, mimir in order', (
   assert.deepEqual(endpoints.map(e => e.name), ['glm', 'deepseek', 'qwen', 'mimir']);
   assert.equal(endpoints[2].allowHttp, true);
   assert.equal(endpoints[2].key, 'none');
+  assert.equal(endpoints[2].reasoningEffort, 'xhigh');
   assert.equal(endpoints[0].allowHttp, undefined);
+});
+
+test('reasoningEffort xhigh loads for an endpoint and an unknown value still throws', () => {
+  const file = reasoningEffort => () => JSON.stringify([{ name: 'a', baseUrl: 'https://x.example/v1', model: 'ma', keyEnv: 'K', reasoningEffort }]);
+  const env = { OVERRIDE_ENDPOINTS: '/e', K: 'k' };
+  assert.equal(loadEndpoints(env, file('xhigh')).endpoints[0].reasoningEffort, 'xhigh');
+  assert.throws(() => loadEndpoints(env, file('ultra')), /low, medium, high, xhigh or none/);
 });
 
 test('public_http_rejected: only HTTPS or localhost HTTP', () => {
@@ -246,7 +254,7 @@ test('legacy_effort', () => {
   assert.equal(modelConfig({ ...base, OVERRIDE_LLM_REASONING_EFFORT: 'none' }).endpoints[0].reasoningEffort, null);
   assert.equal(modelConfig({ ...base, OVERRIDE_LLM_REASONING_EFFORT: ' low ' }).endpoints[0].reasoningEffort, 'low');
   assert.equal(modelConfig({ ...base, OVERRIDE_LLM_REASONING_EFFORT: '' }).endpoints[0].reasoningEffort, 'low');
-  for (const v of ['max', 'LOW']) assert.throws(() => modelConfig({ ...base, OVERRIDE_LLM_REASONING_EFFORT: v }), /OVERRIDE_LLM_REASONING_EFFORT must be low, medium, high or none\./);
+  for (const v of ['max', 'LOW']) assert.throws(() => modelConfig({ ...base, OVERRIDE_LLM_REASONING_EFFORT: v }), /OVERRIDE_LLM_REASONING_EFFORT must be low, medium, high, xhigh or none\./);
 });
 
 test('endpoints_effort', () => {
@@ -255,8 +263,8 @@ test('endpoints_effort', () => {
   assert.equal(load({}), 'low');
   assert.equal(load({ reasoningEffort: null }), null);
   assert.equal(load({ reasoningEffort: 'none' }), null);
-  assert.throws(() => load({ reasoningEffort: 'max' }), /Endpoint a: reasoningEffort must be low, medium, high or none\./);
-  assert.throws(() => load({ reasoningEffort: 5 }), /Endpoint a: reasoningEffort must be low, medium, high or none\./);
+  assert.throws(() => load({ reasoningEffort: 'max' }), /Endpoint a: reasoningEffort must be low, medium, high, xhigh or none\./);
+  assert.throws(() => load({ reasoningEffort: 5 }), /Endpoint a: reasoningEffort must be low, medium, high, xhigh or none\./);
 });
 
 test('hash_changes_with_effort', () => {
