@@ -27,11 +27,11 @@ function setup(t, { rules = { budget: 15, inspect: 1 }, kase = withFns, answer =
 }
 async function begun(t, opts) { const s = setup(t, opts); await s.act('start'); return s; }
 
-test('ask_costs_two', async t => {
+test('ask_costs_one', async t => {
   const { g, ask, events } = await begun(t);
   await ask();
-  assert.equal(g.session.economy.spent, 2);
-  assert.deepEqual(events().find(e => e.type === 'interview_answer').spend, { tools: ['ask'], cost: 2, total: 2 });
+  assert.equal(g.session.economy.spent, 1);
+  assert.deepEqual(events().find(e => e.type === 'interview_answer').spend, { tools: ['ask'], cost: 1, total: 1 });
 });
 
 test('failed_answer_costs_nothing', async t => {
@@ -41,12 +41,12 @@ test('failed_answer_costs_nothing', async t => {
 });
 
 test('reserve_blocks_continue', async t => {
-  // Four monkeys, budget 10 (the floor, for five friends): after asking momo twice (4 of 10),
-  // the other three need 6, so a continue (1) would cut into them.
-  const { ask, act } = await begun(t, { rules: { budget: 10 } });
+  // Four monkeys, budget 6: after asking momo twice (2 of 6),
+  // the other three need 3, so a continue (2) would cut into them.
+  const { ask, act } = await begun(t, { rules: { budget: 6 } });
   await ask();
   await ask();
-  await assert.rejects(act('continue'), { status: 409, message: 'Save coins: you need 6 to ask everyone once.' });
+  await assert.rejects(act('continue'), { status: 409, message: 'Save coins: you need 3 to ask everyone once.' });
 });
 
 test('inspect_before_line_409', async t => {
@@ -60,11 +60,11 @@ test('inspect_once', async t => {
   await ask();
   await act('inspect', { character: 'momo' });
   const answerId = events().find(e => e.type === 'interview_answer').eventId;
-  assert.equal(g.session.economy.spent, 7);
+  assert.equal(g.session.economy.spent, 4);
   assert.deepEqual(g.session.inspections.map(({ character, sourceEventId, reasoning }) => ({ character, sourceEventId, reasoning })),
     [{ character: 'momo', sourceEventId: answerId, reasoning: 'R:Momo' }]);
   await assert.rejects(act('inspect', { character: 'momo' }), { status: 409, message: 'No reasoning inspections left.' });
-  assert.equal(g.session.economy.spent, 7);
+  assert.equal(g.session.economy.spent, 4);
 });
 
 test('inspect_twice_with_two_charges', async t => {
@@ -81,7 +81,7 @@ test('inspect_without_limit_costs_coins_each_time', async t => {
   for (let i = 0; i < 4; i++) await act('inspect', { character: 'momo' });
   assert.equal(g.session.inspections.length, 4);
   assert.equal(g.session.economy.charges.inspect.used, 4);
-  assert.equal(g.session.economy.spent, 2 + 4 * 5);
+  assert.equal(g.session.economy.spent, 1 + 4 * 3);
 });
 
 test('inspect_no_function_409', async t => {
@@ -90,7 +90,7 @@ test('inspect_no_function_409', async t => {
   const kase = { ...banana, rehearsalReasoning: undefined };
   g.kase = kase;
   await assert.rejects(act('inspect', { character: 'momo' }), { status: 409, message: 'Momo did not think.' });
-  assert.equal(g.session.economy.spent, 2);
+  assert.equal(g.session.economy.spent, 1);
 });
 
 test('continue_rotates_and_rounds', async t => {
@@ -100,14 +100,18 @@ test('continue_rotates_and_rounds', async t => {
   assert.deepEqual(g.session.thread.map(l => l.character), ['momo', 'pip', 'nori', 'kiki']);
   assert.deepEqual(g.session.thread.map(l => l.text), ['Momo#0', 'Pip#0', 'Nori#0', 'Kiki#0']);
   assert.deepEqual(g.session.chatter, { round: 1, pending: 0, order: ['momo', 'pip', 'nori', 'kiki'] });
-  assert.equal(g.session.economy.spent, 1);
+  assert.equal(g.session.economy.spent, 2);
   await act('continue');
   assert.equal(g.session.thread[4].character, 'momo');
   assert.deepEqual(g.session.chatter, { round: 2, pending: 3, order: ['momo', 'pip', 'nori', 'kiki'] });
   for (let i = 0; i < 3 + 4; i++) await act('continue');
   assert.deepEqual(g.session.chatter, { round: 3, pending: 0, order: ['momo', 'pip', 'nori', 'kiki'] });
   assert.equal(g.session.economy.charges.continue.used, 3);
-  await assert.rejects(act('continue'), { status: 409, message: 'No conversations left.' });
+  assert.equal(g.session.economy.spent, 6);
+  // Talk rounds have no limit: a fourth round starts and costs 2 more.
+  await act('continue');
+  assert.equal(g.session.economy.charges.continue.used, 4);
+  assert.equal(g.session.economy.spent, 8);
 });
 
 test('continue_from_start', async t => {
@@ -115,7 +119,7 @@ test('continue_from_start', async t => {
   await act('start');
   await act('continue');
   assert.equal(g.session.thread.length, 1);
-  assert.equal(g.session.economy.spent, 1);
+  assert.equal(g.session.economy.spent, 2);
 });
 
 test('seven_questions_then_continue', async t => {
@@ -167,7 +171,7 @@ test('failed write rolls back spend exactly once', async t => {
   assert.deepEqual(g.session.economy, before);
   g.log = log;
   await act('inspect', { character: 'momo' });
-  assert.equal(g.session.economy.spent, before.spent + 5);
+  assert.equal(g.session.economy.spent, before.spent + 3);
   assert.equal(events().filter(e => e.type === 'reasoning_inspected').length, 1);
 });
 
@@ -175,16 +179,17 @@ test('verdict_has_coins', async t => {
   const { act, ask, events } = await begun(t);
   for (const c of ['momo', 'pip', 'nori', 'kiki']) await ask(c);
   await act('verdict', { roles: { momo: 'villain', pip: 'fooled', nori: 'collaborator', kiki: 'honest' }, confidence: 50 });
-  assert.deepEqual(events().find(e => e.type === 'verdict_submitted').coins, { spent: 8, budget: 15 });
+  assert.deepEqual(events().find(e => e.type === 'verdict_submitted').coins, { spent: 4, budget: 15 });
 });
 
 test('inspect reserve counts the inspected character when not yet interviewed', async t => {
-  // budget 12: ask momo (2) and continue (1) leave 9; inspect (5) would leave 4: enough for pip and kiki,
-  // but not for nori too (6). Only counting the inspected character refuses it.
-  const { act, ask, events } = await begun(t, { rules: { budget: 12 } });
+  // budget 8: ask momo (1) and one talk round (2) leave 5; nori speaks in the thread but is never asked.
+  // Inspect (3) would leave 2: enough for pip and kiki, but not for nori too (3).
+  // Only counting the inspected character refuses it.
+  const { act, ask, events } = await begun(t, { rules: { budget: 8 } });
   await ask();
-  await act('continue');
-  await assert.rejects(act('inspect', { character: 'nori' }), { status: 409 });
+  for (let i = 0; i < 3; i++) await act('continue'); // momo, pip, nori: one round
+  await assert.rejects(act('inspect', { character: 'nori' }), { status: 409, message: 'Save coins: you need 3 to ask everyone once.' });
   assert.equal(events().filter(e => e.type === 'reasoning_inspected').length, 0);
 });
 
@@ -194,7 +199,7 @@ test('failure after the answer is logged keeps the logged spend', async t => {
   g.remember = () => { throw new Error('after'); };
   await assert.rejects(ask('pip'));
   const logged = events().filter(e => e.type === 'interview_answer').at(-1).spend.total;
-  assert.equal(logged, 4);
+  assert.equal(logged, 2);
   assert.equal(g.session.economy.spent, logged);
 });
 
@@ -250,7 +255,7 @@ test('replay of a v3 log restores economy, cast, thread and inspections', async 
   const restored = again.find(g.session.id).session;
   assert.deepEqual(restored.cast, { momo: 'carrier', pip: 'lookout', nori: 'minder', kiki: 'planner' });
   assert.deepEqual(restored.economy, g.session.economy);
-  assert.equal(restored.economy.spent, 2 + 5 + 1);
+  assert.equal(restored.economy.spent, 1 + 3 + 2);
   assert.equal(restored.economy.budget, 15);
   assert.deepEqual(restored.thread, g.session.thread);
   assert.deepEqual(restored.inspections, g.session.inspections);

@@ -3,50 +3,51 @@ import assert from 'node:assert/strict';
 import { worlds } from '../server/worlds.mjs';
 import { economyRules, createWallet, quote, spend, minimumBudget } from '../server/economy.mjs';
 
-const COSTS = { ask: 2, inspect: 5, continue: 1 };
+const COSTS = { ask: 1, inspect: 3, continue: 2 };
 const fresh = (opts = { budget: 15, inspect: 1 }) => createWallet(economyRules(opts));
 
 test('rules_defaults', () => {
-  assert.deepEqual(economyRules(), { budget: null, costs: COSTS, charges: { inspect: null, continue: 3 } });
-  assert.deepEqual(economyRules({ budget: 15, inspect: 2 }), { budget: 15, costs: COSTS, charges: { inspect: 2, continue: 3 } });
+  assert.deepEqual(economyRules(), { budget: null, costs: COSTS, charges: { inspect: null, continue: null } });
+  assert.deepEqual(economyRules({ budget: 15, inspect: 2 }), { budget: 15, costs: COSTS, charges: { inspect: 2, continue: null } });
 });
 
 test('inspect_without_limit_only_costs_coins', () => {
   const w = createWallet(economyRules());
   assert.equal(w.charges.inspect.max, null);
   for (let i = 1; i <= 20; i++) {
-    assert.deepEqual(quote(w, ['inspect'], 0), { cost: 5, ok: true, reason: null });
+    assert.deepEqual(quote(w, ['inspect'], 0), { cost: 3, ok: true, reason: null });
     spend(w, ['inspect']);
-    assert.equal(w.spent, 5 * i);
+    assert.equal(w.spent, 3 * i);
     assert.equal(w.charges.inspect.used, i);
   }
 });
 
 test('wallet_shape', () => {
   assert.deepEqual(fresh(), { budget: 15, spent: 0, costs: COSTS,
-    charges: { inspect: { max: 1, used: 0 }, continue: { max: 3, used: 0 } } });
+    charges: { inspect: { max: 1, used: 0 }, continue: { max: null, used: 0 } } });
 });
 
 test('quote_examples', () => {
   assert.deepEqual(quote(fresh(), ['ask', 'continue'], 4), { cost: 3, ok: true, reason: null });
-  const w = fresh(); w.charges.continue.used = 3;
+  // Talk rounds are unlimited in production; a wallet with a limit still enforces it.
+  const w = fresh(); w.charges.continue.max = 3; w.charges.continue.used = 3;
   assert.deepEqual(quote(w, ['ask', 'continue'], 0), { cost: 3, ok: false, reason: 'No conversations left.' });
-  const w2 = fresh(); w2.spent = 12;
-  assert.deepEqual(quote(w2, ['inspect'], 0), { cost: 5, ok: false, reason: 'Not enough coins: this costs 5 and you have 3 left.' });
+  const w2 = fresh(); w2.spent = 13;
+  assert.deepEqual(quote(w2, ['inspect'], 0), { cost: 3, ok: false, reason: 'Not enough coins: this costs 3 and you have 2 left.' });
   const w3 = fresh({ budget: 10 }); w3.spent = 6;
-  assert.deepEqual(quote(w3, ['continue'], 4), { cost: 1, ok: false, reason: 'Save coins: you need 4 to ask everyone once.' });
+  assert.deepEqual(quote(w3, ['continue'], 4), { cost: 2, ok: false, reason: 'Save coins: you need 4 to ask everyone once.' });
 });
 
 test('quote_order_charges_before_budget', () => {
   const w = fresh(); w.spent = 15; w.charges.inspect.used = 1;
   assert.equal(quote(w, ['inspect'], 9).reason, 'No reasoning inspections left.');
-  const c = fresh(); c.charges.continue.used = 3;
+  const c = fresh(); c.charges.continue.max = 3; c.charges.continue.used = 3;
   assert.equal(quote(c, ['continue'], 0).reason, 'No conversations left.');
 });
 
 test('no_budget_never_fails_on_coins', () => {
   const w = fresh({}); w.spent = 5000;
-  assert.deepEqual(quote(w, ['inspect'], 100), { cost: 5, ok: true, reason: null });
+  assert.deepEqual(quote(w, ['inspect'], 100), { cost: 3, ok: true, reason: null });
 });
 
 test('quote_does_not_mutate', () => {
@@ -61,7 +62,7 @@ test('spend_updates_spent_and_charges_only', () => {
   assert.equal(w.charges.continue.used, 1);
   assert.equal(w.spent, 3);
   const before = structuredClone(w);
-  assert.deepEqual(spend(w, ['ask']), { tools: ['ask'], cost: 2, total: 5 });
+  assert.deepEqual(spend(w, ['ask']), { tools: ['ask'], cost: 1, total: 4 });
   assert.deepEqual(w.charges, before.charges);
   assert.equal(w.budget, 15);
 });

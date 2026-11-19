@@ -2,15 +2,15 @@ import { worlds } from './worlds.mjs';
 
 // Coin and charge rules. Pure: no I/O. quote() never mutates; spend() changes only spent and charges.
 
-const COSTS = { ask: 2, inspect: 5, continue: 1 };
+const COSTS = { ask: 1, inspect: 3, continue: 2 };
 const LABELS = { inspect: 'reasoning inspections', continue: 'conversations' };
 
 // A game must be able to ask every agent once, in the largest registered world.
 export const minimumBudget = () => COSTS.ask * Math.max(...Object.values(worlds).map(w => w.agents));
 
-// Production games have no coin budget, unlimited reasoning inspections (each costs coins, 5) and 3 talk rounds. A charge max of null means no use limit. Tests pass a budget to exercise the coin rules.
+// Production games have no coin budget and no use limits: a question costs 1 coin, a reasoning inspection 3 and a talk round 2. A charge max of null means no use limit. Tests pass a budget to exercise the coin rules.
 export function economyRules({ budget = null, inspect = null } = {}) {
-  return { budget, costs: { ...COSTS }, charges: { inspect, continue: 3 } };
+  return { budget, costs: { ...COSTS }, charges: { inspect, continue: null } };
 }
 
 export function createWallet(rules) {

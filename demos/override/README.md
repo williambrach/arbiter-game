@@ -77,9 +77,9 @@ Provider reasoning (`reasoning_content` or `reasoning`) is kept only in server m
 
 | Tool | Cost | Limit |
 | --- | --- | --- |
-| Ask a question | 2 coins | No charge limit |
-| Inspect reasoning | 5 coins | 1 per game |
-| Let them talk | 1 coin per round of 3 lines | 3 rounds |
+| Ask a question | 1 coin | No limit |
+| Inspect reasoning | 3 coins | No limit |
+| Let them talk | 2 coins per round (everyone speaks once) | No limit |
 
 Inspect reasoning and Let them talk are the **Arbiter tools**. They sit in the left rail, and the briefing lists them with their prices. Each card shows its price and uses left, or why it is off. A card glows with a NEW tag the first time it is worth using: Inspect once the open chat's character has answered, Let them talk once everyone has been asked. Inspect reasoning acts on the character whose chat is open and shows how they reasoned about their last line. Let them talk is available from the start; it makes the characters post in a forum-style thread. Each round everyone speaks once, in an order shuffled from the game's seed (`42069` unless `OVERRIDE_TALK_SEED` says otherwise), and nobody speaks twice in a row. They see each other's earlier lines. Each also remembers their own chat with you, and never anyone else's. Their lines appear as speech bubbles over the speaker and in the thread panel. Walking, the verdict and reset are free. Failed answers cost nothing. The top bar shows the coins you have left; the debrief shows the total.
 
