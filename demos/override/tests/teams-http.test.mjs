@@ -91,10 +91,11 @@ test('leaderboard_public', async t => {
   await a.team('Owls');
   await solve(a);
   const mine = (await a.call('/api/leaderboard')).body;
-  assert.equal(mine.rankBy, 'time');
+  assert.equal('rankBy' in mine, false);
   assert.equal(mine.teams.length, 1);
   const row = mine.teams[0];
-  assert.deepEqual(Object.keys(row).sort(), ['cells', 'coins', 'name', 'played', 'points', 'rank', 'timeMs', 'you']);
+  // Players see points and coins only; time is on the admin page.
+  assert.deepEqual(Object.keys(row).sort(), ['cells', 'coins', 'name', 'played', 'points', 'rank', 'you']);
   assert.deepEqual([row.rank, row.points, row.you, row.name], [1, 1, true, 'Owls']);
   assert.equal(JSON.stringify(mine).includes(a.jar.override_team), false);
   const o = browser(s.url);
@@ -103,6 +104,7 @@ test('leaderboard_public', async t => {
   assert.equal((await browser(s.url).call('/api/leaderboard')).body.teams[0].you, false);
   const adm = await (await admin(s, '/admin/leaderboard')).json();
   assert.equal(adm.teams[0].teamId, a.jar.override_team);
+  assert.ok(Number.isFinite(adm.teams[0].timeMs));
   await admin(s, '/admin/teams/hidden', { teamId: a.jar.override_team, hidden: true });
   assert.deepEqual((await o.call('/api/leaderboard')).body.teams, []);
 });
@@ -132,14 +134,15 @@ test('restart_restores', async t => {
   const a = browser(first.url);
   await a.team('Owls');
   const view = (await a.call('/api/start', 'POST', {})).body;
-  assert.equal((await admin(first, '/admin/leaderboard', { rankBy: 'coins' })).status, 200);
+  await admin(first, '/admin/teams/hidden', { teamId: a.jar.override_team, hidden: true });
   await first.close();
   const second = await boot(t, {}, first.dir);
   const again = browser(second.url);
   again.jar.override_team = a.jar.override_team;
   assert.deepEqual((await again.call('/api/team')).body, { team: { name: 'Owls' } });
   assert.equal((await again.call('/api/state')).body.session.id, view.session.id);
-  assert.equal((await again.call('/api/leaderboard')).body.rankBy, 'coins');
+  const adm = await (await admin(second, '/admin/leaderboard')).json();
+  assert.equal(adm.teams.find(r => r.teamId === a.jar.override_team)?.hidden, true);
 });
 
 test('round_empties_board', async t => {

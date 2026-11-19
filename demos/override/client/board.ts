@@ -1,14 +1,10 @@
 import type { Board, BoardCase, BoardCell, LeaderboardRow } from './types.ts';
-import { escape as esc, mmss } from './html.ts';
+import { escape as esc } from './html.ts';
 import { plain, plainTn, t, tn } from './text.ts';
 
 /** Read at use time so the admin's edit applies. */
 export const empty = (): string => t('board.empty');
 const MAX_ROWS = 10;
-
-export function clock(ms: number): string {
-  return mmss(Math.floor((Number(ms) || 0) / 1000));
-}
 
 const pts = (n: number) => plainTn('board.pts', n);
 const coinsText = (n: number) => plainTn('board.coinsCount', n);
@@ -26,18 +22,18 @@ export function boardRow(r: LeaderboardRow, cases: BoardCase[], unranked: string
   const cells = cases.length ? `<td class="board-cells">${cases.map(c => cell(c, r.cells || [])).join('')}</td>` : '';
   return `<tr class="board-row${r.you ? ' you' : ''}"><td class="board-rank">${r.rank == null ? esc(unranked) : esc(r.rank)}</td>` +
     `<td class="board-name">${esc(r.name)}</td>${cells}<td class="board-points">${esc(bare ? r.points : pts(r.points))}</td>` +
-    `<td>${esc(clock(r.timeMs))}</td><td>${esc(bare ? r.coins : coinsText(r.coins))}</td></tr>`;
+    `<td>${esc(bare ? r.coins : coinsText(r.coins))}</td></tr>`;
 }
 
 export function boardScreen(b: Board): string {
   const cases = b.cases || [];
   const shown = b.teams.slice(0, MAX_ROWS);
   const more = b.teams.length - shown.length;
-  const tie = b.rankBy === 'coins' ? plain('board.tie.coins') : plain('board.tie.time');
+  const tie = plain('board.tie.coins');
   const sub = b.round ? t('board.sub.round', { round: String(b.round).toUpperCase() }) : t('board.sub');
   const head = cases.length ? `<th scope="col">${cases.map((_, i) => `<span class="cell-num">${i + 1}</span>`).join('')}</th>` : '';
   const table = shown.length
-    ? `<table class="board-table"><thead><tr><th scope="col">${t('board.col.rank')}</th><th scope="col">${t('board.col.team')}</th>${head}<th scope="col">${t('board.col.points')}</th><th scope="col">${t('board.col.time')}</th><th scope="col">${t('board.col.coins')}</th></tr></thead><tbody>${shown.map(r => boardRow({ ...r, you: false }, cases, plain('board.unranked'), true)).join('')}</tbody></table>`
+    ? `<table class="board-table"><thead><tr><th scope="col">${t('board.col.rank')}</th><th scope="col">${t('board.col.team')}</th>${head}<th scope="col">${t('board.col.points')}</th><th scope="col">${t('board.col.coins')}</th></tr></thead><tbody>${shown.map(r => boardRow({ ...r, you: false }, cases, plain('board.unranked'), true)).join('')}</tbody></table>`
     : `<p class="board-empty">${empty()}</p>`;
   const key = cases.map((c, i) => `<span class="legend-case"><b>${i + 1}</b>${esc(c.title)}</span>`).join('');
   return `<div class="board-screen">

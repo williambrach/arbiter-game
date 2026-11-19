@@ -16,8 +16,9 @@ const PINS = {
   // Banana v4: simplified theft and case-specific role hints.
   'banana-mystery': {"contentHash":"803702850a68","view":"5572b5855f30","interview":"64b795720908","thread":"406ea14ae492"},
   // Friends v2.1.0 (two answers: conspiracist or not): re-pinned on purpose; prompts differ only by the version string.
-  'friends-roundtable': { contentHash: '4759ebe192a4', view: 'e7210defe415', interview: 'dbf2e6248e6f', thread: '8b33f124d5ca' },
-  'factory-escape': { contentHash: '3c549c8bb2f9', view: 'e6f5b8e91c13', interview: 'c879fd6e80e6', thread: '612f762dbdc3' },
+  // Friends and Clocking Out re-pinned again when they swapped places (order 4 and 5): only contentHash and view move.
+  'friends-roundtable': { contentHash: 'dbb9e515258d', view: 'a47fe76bbd76', interview: 'dbf2e6248e6f', thread: '8b33f124d5ca' },
+  'factory-escape': { contentHash: 'b79760d0b172', view: '85e187dd8d71', interview: 'c879fd6e80e6', thread: '612f762dbdc3' },
   'department-murder': { contentHash: 'a73b50757e8f', view: '141114d8179a', interview: 'cd724c0169ea', thread: '6097f5e2149a' },
   // Castelvento v2.1.0 (Federico's quiet slips, guard.words; each part carries its own rules, monkey layout): re-pinned on purpose.
   'renaissance-traveler': { contentHash: 'b924a253e9dd', view: '2f6ca4c9c2ab', interview: '08398e544fa5', thread: '33e29f7ce4dd' },

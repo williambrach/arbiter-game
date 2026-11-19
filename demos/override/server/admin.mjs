@@ -243,12 +243,6 @@ export function createAdmin({ token, monitor = null, tickMs = 1000, pageDir = ne
     },
     'GET /admin/links': () => ({ board: boardUrl }),
     'GET /admin/leaderboard': () => { needBoard(); return leaderboard.standings(); },
-    'POST /admin/leaderboard': async (body) => {
-      needBoard();
-      if (body.rankBy !== 'time' && body.rankBy !== 'coins') throw new RequestError(400, 'rankBy must be time or coins.');
-      leaderboard.setRankBy(body.rankBy);
-      return leaderboard.standings();
-    },
     'POST /admin/teams/hidden': async (body) => {
       needBoard();
       if (typeof body.teamId !== 'string' || !UUID.test(body.teamId)) throw new RequestError(400, 'teamId must be a team id.');

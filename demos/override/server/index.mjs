@@ -126,8 +126,9 @@ export function createApp({ investigations, accessCode = '', secret = randomByte
           return json(res, 200, { team: { name: joined.team.name }, created: joined.created });
         }
         if (url.pathname === '/api/leaderboard' && req.method === 'GET') {
-          const board = leaderboard ? leaderboard.standings({ includeHidden: false, you: team?.id ?? null }) : { rankBy: 'time', teams: [] };
-          return json(res, 200, { rankBy: board.rankBy, startedAt: board.startedAt ?? 0, round: board.round ?? null, endedAt: board.endedAt ?? null, cases: board.cases ?? [], teams: board.teams.map(r => ({ rank: r.rank, name: r.name, points: r.points, played: r.played, timeMs: r.timeMs, coins: r.coins, you: r.you, cells: r.cells ?? [] })) });
+          const board = leaderboard ? leaderboard.standings({ includeHidden: false, you: team?.id ?? null }) : { teams: [] };
+          // Players see points and coins; time stays on the admin page.
+          return json(res, 200, { startedAt: board.startedAt ?? 0, round: board.round ?? null, endedAt: board.endedAt ?? null, cases: board.cases ?? [], teams: board.teams.map(r => ({ rank: r.rank, name: r.name, points: r.points, played: r.played, coins: r.coins, you: r.you, cells: r.cells ?? [] })) });
         }
         if (url.pathname === '/api/heartbeat' && req.method === 'POST') {
           if (typeof input.tab !== 'string' || !tabPattern.test(input.tab)) throw new RequestError(400, 'Send a tab id.');
@@ -360,7 +361,6 @@ export async function startServer(env = process.env, { publicDir = resolve(root,
         },
         leaderboard: {
           standings: () => board.standings({ includeHidden: true, you: null }),
-          setRankBy: mode => { board.setRankBy(mode); onSystem({ type: 'leaderboard_settings', timestamp: Date.now(), rankBy: mode }); },
           setHidden: (teamId, hidden) => { board.setHidden(teamId, hidden); onSystem({ type: 'team_hidden', timestamp: Date.now(), teamId, hidden }); },
         },
       });

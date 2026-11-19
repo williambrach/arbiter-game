@@ -31,7 +31,7 @@ test('example standings', () => {
     start('c', C, 'banana-mystery', 0),
   ]);
   assert.deepEqual(lb.standings({ includeHidden: false, you: 'A' }), {
-    rankBy: 'time', startedAt: 0, endedAt: null, round: null, cases: caseList, teams: [
+    startedAt: 0, endedAt: null, round: null, cases: caseList, teams: [
       { rank: 1, teamId: 'A', name: 'Banana Squad', points: 4, played: 1, timeMs: 120000, coins: 8, hidden: false, you: true, cells: [{ caseId: 'banana-mystery', state: 'perfect', points: 4 }, none('friends-roundtable'), none('factory-escape'), none('department-murder'), none('renaissance-traveler')] },
       { rank: 2, teamId: 'B', name: 'Owls', points: 0, played: 1, timeMs: 60000, coins: 4, hidden: false, you: false, cells: [{ caseId: 'banana-mystery', state: 'zero', points: 0 }, none('friends-roundtable'), none('factory-escape'), none('department-murder'), none('renaissance-traveler')] },
       { rank: null, teamId: 'C', name: 'Lynx', points: 0, played: 0, timeMs: 0, coins: 0, hidden: false, you: false, cells: [{ caseId: 'banana-mystery', state: 'playing', points: 0 }, none('friends-roundtable'), none('factory-escape'), none('department-murder'), none('renaissance-traveler')] },
@@ -75,16 +75,28 @@ test('coins_across_sessions', () => {
   assert.equal(lb.standings({}).teams[0].coins, 10);
 });
 
-test('rank_by_time_and_coins', () => {
+test('equal_points_rank_by_fewest_coins_never_time', () => {
   const lb = board();
   feed(lb, [
+    // Banana Squad is faster but spends more: coins decide, time does not.
     start('a', A, 'banana-mystery', 0), verdict('a', 'momo', 100, { coins: { spent: 12 } }),
     start('b', B, 'banana-mystery', 0), verdict('b', 'momo', 200, { coins: { spent: 4 } }),
+    // Lynx spends as little as Owls but takes far longer: same rank.
+    start('c', C, 'banana-mystery', 0), verdict('c', 'momo', 900, { coins: { spent: 4 } }),
+  ]);
+  const t = lb.standings({}).teams;
+  assert.deepEqual(t.map((x) => [x.name, x.rank]), [['Lynx', 1], ['Owls', 1], ['Banana Squad', 3]]);
+  assert.equal('rankBy' in lb.standings({}), false);
+  assert.equal(lb.setRankBy, undefined);
+});
+
+test('points_beat_coins', () => {
+  const lb = board();
+  feed(lb, [
+    start('a', A, 'banana-mystery', 0), roleVerdict('a', 'banana-mystery', 3, 100, { coins: { spent: 30 } }),
+    start('b', B, 'banana-mystery', 0), roleVerdict('b', 'banana-mystery', 2, 100, { coins: { spent: 1 } }),
   ]);
   assert.deepEqual(names(lb), ['Banana Squad', 'Owls']);
-  lb.setRankBy('coins');
-  assert.equal(lb.standings({}).rankBy, 'coins');
-  assert.deepEqual(names(lb), ['Owls', 'Banana Squad']);
 });
 
 test('ties_share_rank and unranked_after_ranked', () => {
@@ -93,7 +105,7 @@ test('ties_share_rank and unranked_after_ranked', () => {
     start('c', C, 'banana-mystery', 0),
     start('a', A, 'banana-mystery', 0), verdict('a', 'momo', 100, { coins: { spent: 2 } }),
     start('b', B, 'banana-mystery', 0), verdict('b', 'momo', 100, { coins: { spent: 2 } }),
-    start('d', { id: 'D', name: 'Zed' }, 'banana-mystery', 0), verdict('d', 'momo', 300, { coins: { spent: 2 } }),
+    start('d', { id: 'D', name: 'Zed' }, 'banana-mystery', 0), verdict('d', 'momo', 100, { coins: { spent: 3 } }),
   ]);
   const t = lb.standings({}).teams;
   assert.deepEqual(t.map((x) => x.rank), [1, 1, 3, null]);
@@ -105,17 +117,18 @@ test('reset_round', () => {
   feed(lb, [start('a', A, 'banana-mystery', 50), verdict('a', 'momo', 120), start('b', B, 'banana-mystery', 110)]);
   assert.deepEqual(names(lb), ['Owls']);
   lb.reset(500000);
-  assert.deepEqual(lb.standings({}), { rankBy: 'time', startedAt: 500000, endedAt: null, round: null, cases: caseList, teams: [] });
+  assert.deepEqual(lb.standings({}), { startedAt: 500000, endedAt: null, round: null, cases: caseList, teams: [] });
   feed(lb, [start('c', C, 'banana-mystery', 400)]);
   assert.deepEqual(names(lb), []);
 });
 
 test('restore_settings', () => {
   const lb = board();
-  lb.restore([{ type: 'leaderboard_settings', rankBy: 'coins' }, { type: 'leaderboard_settings', rankBy: 'time' }, { type: 'leaderboard_settings', rankBy: 'coins' },
+  // Old logs still hold leaderboard_settings from the retired tie switch: restore skips them.
+  lb.restore([{ type: 'leaderboard_settings', rankBy: 'time' },
     { type: 'team_hidden', teamId: 'A', hidden: true }, { type: 'team_hidden', teamId: 'B', hidden: true }, { type: 'team_hidden', teamId: 'A', hidden: false }]);
   feed(lb, [start('a', A, 'banana-mystery', 0), start('b', B, 'banana-mystery', 0)]);
-  assert.equal(lb.standings({}).rankBy, 'coins');
+  assert.equal('rankBy' in lb.standings({}), false);
   assert.deepEqual(names(lb), ['Banana Squad']);
 });
 
@@ -140,10 +153,6 @@ test('role_verdict_points_are_roles_right', () => {
   ]);
   const t = Object.fromEntries(lb.standings({}).teams.map((x) => [x.name, x.points]));
   assert.deepEqual(t, { 'Banana Squad': 4, Owls: 3, Lynx: 2 });
-});
-
-test('setRankBy_rejects', () => {
-  assert.throws(() => board().setRankBy('speed'));
 });
 
 test('never_throws', () => {

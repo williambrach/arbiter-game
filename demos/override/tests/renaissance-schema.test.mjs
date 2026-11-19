@@ -20,21 +20,22 @@ const BASE = {
     "contentHash": "803702850a68"
   },
   // Friends v2.1.0 (two answers: conspiracist or not): re-pinned on purpose; prompts differ only by the version string.
+  // Friends and Clocking Out re-pinned again when they swapped places (order 4 and 5): only contentHash and view move.
   "friends-roundtable": {
-    "view": "e7210defe4157083",
+    "view": "a47fe76bbd76597c",
     "chars": "a649ab932c68ee4f",
     "roles": "01ce7b8d7918725c",
     "msgs": "3ed2b7240e34265e",
     "thread": "05fe88b6f493fcb2",
-    "contentHash": "4759ebe192a4"
+    "contentHash": "dbb9e515258d"
   },
   "factory-escape": {
-    "view": "e6f5b8e91c1310a3",
+    "view": "85e187dd8d718264",
     "chars": "f92df788e9ae6d4c",
     "roles": "8205567f12253456",
     "msgs": "e3bd2695f2b55e70",
     "thread": "48e261ec2459b232",
-    "contentHash": "3c549c8bb2f9"
+    "contentHash": "b79760d0b172"
   },
   "department-murder": {
     "view": "141114d8179a3ea6",

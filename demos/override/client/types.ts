@@ -61,8 +61,8 @@ export interface Inspection { character: CharacterId; sourceEventId: string; rea
 export type CellState = 'perfect' | 'partial' | 'zero' | 'playing' | 'none';
 export interface BoardCell { caseId: string; state: CellState; points: number }
 export interface BoardCase { id: string; title: string; order: number; total: number }
-export interface LeaderboardRow { rank: number | null; name: string; points: number; played: number; timeMs: number; coins: number; you: boolean; cells?: BoardCell[] }
-export interface Leaderboard { rankBy: 'time' | 'coins'; startedAt?: number; round?: string | null; cases?: BoardCase[]; teams: LeaderboardRow[] }
+export interface LeaderboardRow { rank: number | null; name: string; points: number; played: number; coins: number; you: boolean; cells?: BoardCell[] }
+export interface Leaderboard { startedAt?: number; round?: string | null; cases?: BoardCase[]; teams: LeaderboardRow[] }
 export type Board = Leaderboard;
 
 // Wave 0 stub shapes for the Castelvento scenery (T2) and world labels (T3). The owning tasks refine them.

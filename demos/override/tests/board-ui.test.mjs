@@ -9,7 +9,7 @@ const cases = [
 ];
 const team = (i, state1 = 'perfect', state2 = 'none', o = {}) => ({ rank: i, name: `Team ${i}`, points: 4, played: 1, timeMs: 90000, coins: 12, you: false,
   cells: [{ caseId: 'banana-mystery', state: state1, points: 4 }, { caseId: 'factory-escape', state: state2, points: 1 }], ...o });
-const board = (o = {}) => ({ rankBy: 'time', round: 'Session B', cases, teams: [team(1)], ...o });
+const board = (o = {}) => ({ round: 'Session B', cases, teams: [team(1)], ...o });
 const count = (html, re) => (html.match(re) || []).length;
 
 test('header_and_counts', () => {
@@ -39,8 +39,8 @@ test('ten_rows_and_more_line', () => {
   const teams = Array.from({ length: 13 }, (_, i) => team(i + 1));
   const html = boardScreen(board({ teams }));
   assert.equal(count(html, /<tr class="board-row/g), 10);
-  assert.ok(html.includes('+ 3 more teams · ties by time'));
-  assert.ok(boardScreen(board({ teams, rankBy: 'coins' })).includes('+ 3 more teams · ties by coins'));
+  assert.ok(html.includes('+ 3 more teams · ties by coins'));
+  assert.ok(!html.includes('ties by time'));
   assert.ok(!boardScreen(board({ teams: teams.slice(0, 10) })).includes('more team'));
 });
 
@@ -64,7 +64,9 @@ test('empty_board', () => {
 
 test('screen_points_and_coins_are_bare_numbers_and_the_overlay_row_keeps_its_units', () => {
   const html = boardScreen(board({ teams: [team(1, 'perfect', 'none', { points: 9, coins: 9, timeMs: 61000 })] }));
-  assert.match(html, /<td class="board-points">9<\/td><td>1:01<\/td><td>9<\/td><\/tr>/);
+  // No time column on the big screen: points, then coins.
+  assert.match(html, /<td class="board-points">9<\/td><td>9<\/td><\/tr>/);
+  assert.ok(!html.includes('1:01') && !html.includes('>TIME<'));
   assert.doesNotMatch(html, /\bpts?\b|\bcoins?<\/td>/);
   const row = boardRow(team(1, 'perfect', 'none', { points: 1, coins: 1 }), cases, 'Playing');
   assert.ok(row.includes('1 pt<') && row.includes('1 coin<'));

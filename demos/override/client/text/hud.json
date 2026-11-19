@@ -17,5 +17,7 @@
   "hud.movement": "WASD / ARROWS to walk · E to interact",
   "hud.talking": "{part} · talking",
   "hud.notAsked": "{part} · not asked",
-  "hud.asked": "Asked"
+  "hud.asked": "Asked",
+  "hud.alarm.warning1": "The lights flickered: the shift ends soon. Make your verdict before the bell rings.",
+  "hud.alarm.warning2": "The lights flickered again: the bell is about to ring. Make your verdict now!"
 }

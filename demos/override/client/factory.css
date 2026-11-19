@@ -28,3 +28,9 @@ html [data-world="factory"] .monkey-face.bruno, html .monkey-line[data-world="fa
 @media (prefers-reduced-motion: reduce) {
   .factory-flicker[data-kind="warn"], .factory-flicker[data-kind="blink"] { background: #000; animation: factory-soft 900ms ease-in-out both; }
 }
+
+/* The deadline warning in words (main.ts paintAlarm): under the top bar from the first flicker until the game closes. */
+.alarm-banner { position: fixed; top: 78px; left: 50%; z-index: 40; transform: translateX(-50%); box-sizing: border-box; max-width: calc(100vw - 32px); padding: 10px 18px; border: 2px solid #f2c230; border-radius: 6px; background: #20272d; color: #f2c230; font-weight: 700; text-align: center; box-shadow: 0 6px 18px #0008; pointer-events: none; }
+.alarm-banner[data-alarm="warning2"] { background: #f2c230; color: #12171b; border-color: #12171b; animation: alarm-pulse 1.2s ease-in-out infinite; }
+@keyframes alarm-pulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.04); } }
+@media (prefers-reduced-motion: reduce) { .alarm-banner[data-alarm="warning2"] { animation: none; } }

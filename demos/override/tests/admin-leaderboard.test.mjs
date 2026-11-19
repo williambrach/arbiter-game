@@ -7,8 +7,8 @@ const T = 'secret-token';
 const ID = '11111111-2222-4333-8444-555555555555';
 const board = () => {
   const calls = [];
-  const st = { rankBy: 'time', startedAt: 1, teams: [{ rank: 1, teamId: ID, name: 'Owls', points: 2, played: 2, timeMs: 5000, coins: 3, hidden: false, you: false }] };
-  return { calls, standings: () => st, setRankBy: (m) => calls.push(['rank', m]), setHidden: (id, h) => calls.push(['hide', id, h]) };
+  const st = { startedAt: 1, teams: [{ rank: 1, teamId: ID, name: 'Owls', points: 2, played: 2, timeMs: 5000, coins: 3, hidden: false, you: false }] };
+  return { calls, standings: () => st, setHidden: (id, h) => calls.push(['hide', id, h]) };
 };
 async function start(leaderboard) {
   const srv = createAdmin({ token: T, investigations: { stats: () => ({}) }, registry: { render: () => '' }, dataDir: '.', leaderboard });
@@ -25,21 +25,20 @@ test('leaderboard routes: auth, validation, 409 when off', async () => {
   const b = board();
   const { srv, call } = await start(b);
   try {
-    for (const [m, p] of [['GET', '/admin/leaderboard'], ['POST', '/admin/leaderboard'], ['POST', '/admin/teams/hidden']]) {
+    for (const [m, p] of [['GET', '/admin/leaderboard'], ['POST', '/admin/teams/hidden']]) {
       assert.equal((await call(m, p, m === 'POST' ? {} : undefined, false)).status, 401);
     }
     const g = await call('GET', '/admin/leaderboard');
     assert.equal(g.status, 200);
     assert.equal(g.json.teams[0].name, 'Owls');
-    const bad = await call('POST', '/admin/leaderboard', { rankBy: 'x' });
-    assert.deepEqual([bad.status, bad.json.error], [400, 'rankBy must be time or coins.']);
-    assert.equal((await call('POST', '/admin/leaderboard', { rankBy: 'coins' })).status, 200);
+    // The time/coins tie switch is gone: ties always go by fewest coins.
+    assert.equal((await call('POST', '/admin/leaderboard', { rankBy: 'coins' })).status, 405);
     const t1 = await call('POST', '/admin/teams/hidden', { teamId: 'nope', hidden: true });
     assert.deepEqual([t1.status, t1.json.error], [400, 'teamId must be a team id.']);
     const t2 = await call('POST', '/admin/teams/hidden', { teamId: ID, hidden: 'yes' });
     assert.deepEqual([t2.status, t2.json.error], [400, 'hidden must be true or false.']);
     assert.equal((await call('POST', '/admin/teams/hidden', { teamId: ID, hidden: true })).status, 200);
-    assert.deepEqual(b.calls, [['rank', 'coins'], ['hide', ID, true]]);
+    assert.deepEqual(b.calls, [['hide', ID, true]]);
     assert.equal((await call('DELETE', '/admin/leaderboard')).status, 405);
   } finally { srv.close(); }
 });
@@ -47,7 +46,7 @@ test('leaderboard routes: auth, validation, 409 when off', async () => {
 test('409 when the leaderboard is off', async () => {
   const { srv, call } = await start(null);
   try {
-    for (const [m, p, b] of [['GET', '/admin/leaderboard'], ['POST', '/admin/leaderboard', { rankBy: 'time' }], ['POST', '/admin/teams/hidden', { teamId: ID, hidden: true }]]) {
+    for (const [m, p, b] of [['GET', '/admin/leaderboard'], ['POST', '/admin/teams/hidden', { teamId: ID, hidden: true }]]) {
       const r = await call(m, p, b);
       assert.deepEqual([r.status, r.json.error], [409, 'The leaderboard is off.']);
     }

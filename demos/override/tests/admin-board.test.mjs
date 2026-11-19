@@ -21,7 +21,7 @@ const rowOf = (root, id) => find(root, (e) => e.className.split(' ').includes('b
 const btn = (root, sel) => find(root, (e) => e.tagName === 'button' && Object.entries(sel).every(([k, v]) => e.dataset[k] === v))[0];
 
 const team = (o) => ({ rank: 1, teamId: 'aaaa', name: 'Owls', points: 2, played: 1, timeMs: 754000, coins: 3, hidden: false, you: false, ...o });
-const snap = (teams, rankBy = 'time') => ({ leaderboard: { rankBy, startedAt: 0, teams } });
+const snap = (teams) => ({ leaderboard: { startedAt: 0, teams } });
 
 test('boardRows formats rank, points, time, coins', () => {
   const rows = boardRows(snap([team({}), team({ teamId: 'b', name: 'Cats', rank: null, points: 1, timeMs: 61000, coins: 0, hidden: true })]));
@@ -44,16 +44,14 @@ test('empty board shows the empty text; rows hide it', () => {
   assert.ok(root.textContent.includes('New round empties the board.'));
 });
 
-test('rank toggle reflects rankBy and posts', async () => {
+test('ties go by fewest coins: no rank toggle, time is information only', () => {
   const root = new El('section', makeDoc());
-  const calls = [];
-  const api = async (p, b) => { calls.push([p, b]); return snap([team({})], 'coins').leaderboard; };
-  renderBoard(root, snap([team({})]), { api });
-  assert.equal(btn(root, { rankBy: 'time' }).attrs['aria-pressed'], 'true');
-  assert.equal(btn(root, { rankBy: 'coins' }).attrs['aria-pressed'], 'false');
-  await btn(root, { rankBy: 'coins' }).listeners.click();
-  assert.deepEqual(calls, [['/admin/leaderboard', { rankBy: 'coins' }]]);
-  assert.equal(btn(root, { rankBy: 'coins' }).attrs['aria-pressed'], 'true');
+  renderBoard(root, snap([team({})]), { api: async () => ({}) });
+  assert.equal(btn(root, { rankBy: 'time' }), undefined);
+  assert.equal(btn(root, { rankBy: 'coins' }), undefined);
+  assert.ok(root.textContent.includes('Ties by fewest coins'));
+  assert.ok(root.textContent.includes('Time is for your information only'));
+  assert.ok(root.textContent.includes('12:34'), 'the admin row still shows time');
 });
 
 test('hide and show post and repaint; hidden rows get the class', async () => {

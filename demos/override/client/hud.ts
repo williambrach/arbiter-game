@@ -65,6 +65,7 @@ export function hudShell(v: { teamName: string; headline: string; topline: strin
     </div>
     <div id="movement-hint" class="movement-hint">${t('hud.movement')}</div>
     <div id="toast" role="alert" hidden></div>
+    <div id="alarm-banner" class="alarm-banner" role="status" hidden></div>
     <div id="overlay-root"></div>`;
 }
 

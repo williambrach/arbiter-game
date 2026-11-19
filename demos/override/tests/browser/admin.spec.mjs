@@ -136,15 +136,15 @@ test('leaderboard_section', async ({ page, playwright }) => {
   const nameBox = page.locator('#board .board-name').filter({ hasText: names[0] });
   await expect(nameBox).toContainText(names[0]);
   expect(await nameBox.evaluate(e => e.clientWidth)).toBeGreaterThan(100);
-  await page.locator('#board [data-rank-by="coins"]').click();
-  await expect(page.locator('#board [data-rank-by="coins"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#board [data-rank-by="time"]')).toHaveAttribute('aria-pressed', 'false');
+  // No tie switch any more: ties always go by fewest coins.
+  await expect(page.locator('#board [data-rank-by]')).toHaveCount(0);
+  await expect(page.locator('#board .board-ties')).toHaveText('Ties by fewest coins');
   const row = rows.filter({ hasText: names[0] });
   await row.locator('[data-action="hide"]').click();
   await expect(row.locator('[data-action="show"]')).toBeVisible();
   const outsider = await playwright.request.newContext({ baseURL: GAME });
   const board = await (await outsider.get('/api/leaderboard')).json();
-  expect(board.rankBy).toBe('coins');
+  expect(board.rankBy).toBeUndefined();
   expect(board.teams.map(t => t.name)).not.toContain(names[0]);
   expect(board.teams.map(t => t.name)).toContain(names[1]);
   await row.locator('[data-action="show"]').click();

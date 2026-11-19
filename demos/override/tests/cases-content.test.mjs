@@ -9,7 +9,7 @@ import { minimalCase, partCase, agentWorlds } from './fixtures/minimal-case.mjs'
 const bananaCast = { momo: 'carrier', pip: 'planner', nori: 'lookout', kiki: 'minder' };
 
 test('registry lists the grove, friends, factory, department and renaissance cases (five cases), all part cases', () => {
-  assert.deepEqual(cases.map(c => `${c.order}:${c.id}:${c.status}:${c.world.id}`), ['1:banana-mystery:ready:grove', '5:friends-roundtable:ready:friends', '4:factory-escape:ready:factory', '2:department-murder:ready:department', '3:renaissance-traveler:ready:renaissance']);
+  assert.deepEqual(cases.map(c => `${c.order}:${c.id}:${c.status}:${c.world.id}`), ['1:banana-mystery:ready:grove', '4:friends-roundtable:ready:friends', '5:factory-escape:ready:factory', '2:department-murder:ready:department', '3:renaissance-traveler:ready:renaissance']);
   assert.ok(cases.every(c => Array.isArray(c.parts)));
   assert.deepEqual(cases.map(c => c.world.id).sort(), ['department', 'factory', 'friends', 'grove', 'renaissance']);
   assert.ok(cases.some(c => c.parts.some(p => p.role === 'villain')), 'some case has a villain part');

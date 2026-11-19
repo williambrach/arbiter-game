@@ -30,12 +30,10 @@
   "team.privacy.back": "Back to check-in",
   "team.note": "Each case scores once per team: your first guess counts.",
   "team.ties.coins": "Ties by coins",
-  "team.ties.time": "Ties by time",
   "team.col.cases": "Cases",
   "team.col.rank": "Rank",
   "team.col.team": "Team",
   "team.col.points": "Points",
-  "team.col.time": "Time",
   "team.col.coins": "Coins",
   "team.playing": "Playing"
 }

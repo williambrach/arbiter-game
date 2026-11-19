@@ -76,7 +76,7 @@ const part = (id, theory, topic, slips, introduction, quickQuestion, classificat
 export default defineCase({
   id: 'friends-roundtable',
   version: 'friends-roundtable-v2.1.0',
-  order: 5,
+  order: 4,
   world: 'friends',
   status: 'ready',
   title: 'Friends',

@@ -325,6 +325,19 @@ let escaping = false;
 let pollTimer: ReturnType<typeof setInterval> | undefined;
 let speakingUntil = 0;
 
+/** The hidden deadline's warning, in words: shown from the first flicker until the game closes. */
+function paintAlarm() {
+  const banner = document.querySelector<HTMLElement>('#alarm-banner');
+  if (!banner) return;
+  const s = state?.session;
+  const alarm = s?.status === 'active' && !escaping ? s.alarm : undefined;
+  const on = alarm === 'warning1' || alarm === 'warning2';
+  banner.hidden = !on;
+  banner.dataset.alarm = on ? alarm : '';
+  const text = alarm === 'warning1' ? plain('hud.alarm.warning1') : alarm === 'warning2' ? plain('hud.alarm.warning2') : '';
+  if (banner.textContent !== text) banner.textContent = text;
+}
+
 function flicker(kind: 'warn' | 'blink', ms: number) {
   const el = document.createElement('div');
   el.className = 'factory-flicker';
@@ -348,6 +361,7 @@ function receive(fresh: CaseState): boolean {
   }
   state = fresh;
   if (now === 'warning1' || now === 'warning2') flicker('warn', 900);
+  paintAlarm();
   return false;
 }
 
@@ -356,6 +370,7 @@ async function runEscape(fresh: CaseState) {
   dialogueOpen = false;
   threadOpen = false;
   render();
+  paintAlarm();
   station.setEnabled(false);
   flicker('blink', 1600);
   const escaper = fresh.debrief?.findings.find(f => f.role === 'escaper')?.character;
@@ -375,6 +390,7 @@ async function poll() {
   try {
     const fresh: CaseState = await api('state');
     if (!receive(fresh) && fresh.session?.id === state.session?.id && fresh.session?.alarm) state.session!.alarm = fresh.session.alarm;
+    paintAlarm();
   } catch { /* Try again on the next beat. */ }
 }
 
@@ -628,6 +644,7 @@ function render() {
   const toast = document.querySelector<HTMLElement>('#toast')!;
   toast.hidden = !errorMessage;
   toast.textContent = errorMessage;
+  paintAlarm();
   const lineup = Boolean(session && !state.talk && session.status === 'active' && panel === 'report' && dialogueOpen && !introVisible && heard === state.characters.length && !threadOpen);
   const wasOpen = app.dataset.dialogue === 'open';
   app.dataset.dialogue = dialogueOpen && !introVisible ? 'open' : 'closed';

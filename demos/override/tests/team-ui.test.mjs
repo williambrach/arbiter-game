@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { teamNameError, teamGate, leaderboardPanel, clock } from '../client/team.ts';
+import { teamNameError, teamGate, leaderboardPanel } from '../client/team.ts';
 
 const MSG = 'Team names are 2 to 24 letters, numbers and spaces.';
 const gate = (o = {}) => teamGate({ name: '', error: '', taken: null, busy: false, switching: false, ...o });
@@ -13,12 +13,6 @@ test('team_name_error', () => {
   for (const bad of ['x', '', '   ', '#hash', '<b>', 'a'.repeat(25)]) assert.equal(teamNameError(bad), MSG);
 });
 
-test('clock', () => {
-  assert.equal(clock(125000), '2:05');
-  assert.equal(clock(3725000), '62:05');
-  assert.equal(clock(0), '0:00');
-});
-
 test('gate', () => {
   const html = gate();
   for (const s of ['id="team-form"', 'id="team-name"', 'maxlength="24"', 'id="team-submit"', 'id="team-error"', 'TEAM CHECK-IN']) assert.ok(html.includes(s), s);
@@ -29,26 +23,28 @@ test('gate', () => {
 
 test('names_escaped', () => {
   const evil = '<img onerror=x>';
-  const html = leaderboardPanel({ rankBy: 'time', teams: [row({ name: evil })] });
+  const html = leaderboardPanel({ teams: [row({ name: evil })] });
   assert.ok(html.includes('&lt;img') && !html.includes('<img'));
   const g = gate({ name: evil, taken: evil, error: evil });
   assert.ok(g.includes('&lt;img') && !g.includes('<img'));
 });
 
 test('leaderboard', () => {
-  const html = leaderboardPanel({ rankBy: 'time', teams: [row()] });
+  const html = leaderboardPanel({ teams: [row()] });
   assert.ok(html.includes('class="board-row you"'));
-  for (const s of ['>1<', 'Owls', '1 pt<', '2:05', '8 coins', 'Ties by time', 'Each case scores once per team: your first guess counts.']) assert.ok(html.includes(s), s);
-  const b = leaderboardPanel({ rankBy: 'coins', teams: [row({ rank: null, points: 2, coins: 1, you: false })] });
+  for (const s of ['>1<', 'Owls', '1 pt<', '8 coins', 'Ties by coins', 'Each case scores once per team: your first guess counts.']) assert.ok(html.includes(s), s);
+  // Time is for admins only: players never see it.
+  assert.ok(!html.includes('2:05') && !html.includes('>Time<') && !html.includes('Ties by time'));
+  const b = leaderboardPanel({ teams: [row({ rank: null, points: 2, coins: 1, you: false })] });
   assert.ok(b.includes('Playing') && b.includes('2 pts') && b.includes('1 coin<') && b.includes('Ties by coins') && !b.includes('board-row you'));
-  assert.ok(leaderboardPanel({ rankBy: 'time', teams: [] }).includes('<p class="board-empty">No team has finished a case yet.</p>'));
+  assert.ok(leaderboardPanel({ teams: [] }).includes('<p class="board-empty">No team has finished a case yet.</p>'));
 });
 
 test('leaderboard_cells', () => {
   const cases = [{ id: 'a', title: 'A', order: 1, total: 4 }];
-  const html = leaderboardPanel({ rankBy: 'time', cases, teams: [row({ cells: [{ caseId: 'a', state: 'partial', points: 3 }] })] });
+  const html = leaderboardPanel({ cases, teams: [row({ cells: [{ caseId: 'a', state: 'partial', points: 3 }] })] });
   assert.ok(html.includes('class="board-row you"') && html.includes('class="cell partial"') && html.includes('<th>Cases</th>'));
-  assert.ok(!leaderboardPanel({ rankBy: 'time', teams: [row()] }).includes('class="cell'));
+  assert.ok(!leaderboardPanel({ teams: [row()] }).includes('class="cell'));
 });
 
 test('consent_gate', () => {

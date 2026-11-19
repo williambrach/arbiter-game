@@ -1,4 +1,4 @@
-// Leaderboard section: rank toggle, per-team hide/show. Text only (textContent); built once, updated in place.
+// Leaderboard section: per-team hide/show. Time is shown here for information; it never ranks. Text only (textContent); built once, updated in place.
 import { el as mk, isNum, mmss } from './dom.js';
 
 const minutes = (ms) => (isNum(ms) ? mmss(ms) : '–');
@@ -25,19 +25,10 @@ function build(root, opts) {
   const doc = root.ownerDocument;
   const st = { opts, rows: new Map(), busy: false };
   const head = el(doc, 'div', 'board-head');
-  head.append(el(doc, 'h3', 'board-title', 'Leaderboard'), el(doc, 'span', 'board-ties', 'Ties by'));
-  st.modes = {};
-  for (const [mode, label] of [['time', 'Time'], ['coins', 'Coins']]) {
-    const b = el(doc, 'button', 'board-mode', label);
-    b.dataset.rankBy = mode;
-    b.setAttribute('aria-pressed', 'false');
-    b.addEventListener('click', () => act('/admin/leaderboard', { rankBy: mode }));
-    st.modes[mode] = b;
-    head.append(b);
-  }
+  head.append(el(doc, 'h3', 'board-title', 'Leaderboard'), el(doc, 'span', 'board-ties', 'Ties by fewest coins'));
   st.list = el(doc, 'div', 'board-list');
   st.empty = el(doc, 'p', 'board-empty', 'No team has finished a case this round.');
-  st.note = el(doc, 'p', 'board-note', "Points for each correct guess; a team's first guess per case counts. New round empties the board.");
+  st.note = el(doc, 'p', 'board-note', "Points for each correct guess; a team's first guess per case counts. Equal points rank by fewest coins. Time is for your information only: players do not see it. New round empties the board.");
   st.error = el(doc, 'p', 'board-error');
   root.append(head, st.list, st.empty, st.error, st.note);
 
@@ -78,9 +69,6 @@ function rowEl(st, doc, id) {
 
 function paint(st, snap) {
   const doc = st.list.ownerDocument;
-  const lb = snap && snap.leaderboard;
-  const rankBy = lb && lb.rankBy;
-  for (const [mode, b] of Object.entries(st.modes)) b.setAttribute('aria-pressed', mode === rankBy ? 'true' : 'false');
   const rows = boardRows(snap);
   const ids = new Set(rows.map((r) => r.teamId));
   for (const [id, p] of st.rows) if (!ids.has(id)) { p.el.remove(); st.rows.delete(id); }

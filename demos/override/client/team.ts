@@ -1,9 +1,8 @@
 import type { Leaderboard } from './types.ts';
-import { boardRow, clock, empty } from './board.ts';
+import { boardRow, empty } from './board.ts';
 import { escape as esc } from './html.ts';
 import { plain, t } from './text.ts';
 
-export { clock };
 
 /** Read at use time so the admin's edit applies. */
 export const nameError = (): string => plain('team.nameError');
@@ -57,13 +56,13 @@ export function teamGate(view: GateView): string {
     `<div class="team-actions">${cancel}<button type="submit" id="team-submit" class="primary-button"${view.busy || !agreed ? ' disabled' : ''}>${t('team.submit')}</button></div></form></div>`;
 }
 
-export function leaderboardPanel(board: Pick<Leaderboard, 'rankBy' | 'teams' | 'cases'>): string {
+export function leaderboardPanel(board: Pick<Leaderboard, 'teams' | 'cases'>): string {
   const note = `<p class="fine-print">${t('team.note')}</p>`;
   if (!board.teams.length) return `<p class="board-empty">${empty()}</p>${note}`;
-  const caption = board.rankBy === 'coins' ? t('team.ties.coins') : t('team.ties.time');
+  const caption = t('team.ties.coins');
   const cases = board.cases || [];
   const head = cases.length ? `<th>${t('team.col.cases')}</th>` : '';
   return `<table class="board-table"><caption>${caption}</caption>` +
-    `<thead><tr><th>${t('team.col.rank')}</th><th>${t('team.col.team')}</th>${head}<th>${t('team.col.points')}</th><th>${t('team.col.time')}</th><th>${t('team.col.coins')}</th></tr></thead>` +
+    `<thead><tr><th>${t('team.col.rank')}</th><th>${t('team.col.team')}</th>${head}<th>${t('team.col.points')}</th><th>${t('team.col.coins')}</th></tr></thead>` +
     `<tbody>${board.teams.map(r => boardRow(r, cases, plain('team.playing'))).join('')}</tbody></table>${note}`;
 }
