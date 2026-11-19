@@ -1,6 +1,6 @@
 [
-  { "name": "glm", "baseUrl": "https://ai.cloud.sdu.dk/v1", "model": "zai-org/GLM-5.3-Flash", "keyEnv": "OVERRIDE_LLM_API_KEY", "maxInFlight": 200, "timeoutMs": 30000, "temperature": null, "reasoningEffort": "low", "tokenParam": "max_completion_tokens" },
-  { "name": "deepseek", "baseUrl": "https://ai.cloud.sdu.dk/v1", "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017", "keyEnv": "OVERRIDE_LLM_API_KEY", "maxInFlight": 200, "timeoutMs": 30000, "temperature": null, "reasoningEffort": "low", "tokenParam": "max_completion_tokens" },
+  { "name": "glm", "baseUrl": "https://ai.cloud.sdu.dk/v1", "model": "zai-org/GLM-5.3-Flash", "keyEnv": "OVERRIDE_LLM_API_KEY", "maxInFlight": 200, "timeoutMs": 30000, "temperature": null, "reasoningEffort": "medium", "tokenParam": "max_completion_tokens" },
+  { "name": "deepseek", "baseUrl": "https://ai.cloud.sdu.dk/v1", "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017", "keyEnv": "OVERRIDE_LLM_API_KEY", "maxInFlight": 200, "timeoutMs": 30000, "temperature": null, "reasoningEffort": "medium", "tokenParam": "max_completion_tokens" },
   { "name": "qwen", "baseUrl": "http://130.225.164.228:8000/v1", "allowHttp": true, "model": "qwen3.8-flash-next", "keyEnv": "OVERRIDE_SELFHOSTED_KEY", "maxInFlight": 25, "timeoutMs": 60000, "temperature": null, "reasoningEffort": "xhigh", "tokenParam": "max_tokens" },
   { "name": "mimir", "baseUrl": "http://130.225.164.228:8000/v1", "allowHttp": true, "model": "danish-foundation-models/DFM-Mimir-v1.8", "keyEnv": "OVERRIDE_SELFHOSTED_KEY", "maxInFlight": 25, "timeoutMs": 30000, "temperature": null, "reasoningEffort": "none", "tokenParam": "max_tokens" }
 ]
