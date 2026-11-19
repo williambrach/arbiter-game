@@ -21,12 +21,12 @@ test('team_name_rules', () => {
 
 test('create_then_taken_never_joins', () => {
   const t = createTeams({ file: null, max: 10 });
-  const first = t.join('Banana Squad');
+  const first = t.join('Banana Squad', true);
   assert.equal(first.created, true);
   assert.equal(first.team.sessionId, null);
-  assert.deepEqual(t.join('banana squad'), { taken: 'Banana Squad' });
+  assert.deepEqual(t.join('banana squad', true), { taken: 'Banana Squad' });
   // The old join flag is ignored: a known name never hands out its team.
-  assert.deepEqual(t.join('banana squad', { join: true }), { taken: 'Banana Squad' });
+  assert.deepEqual(t.join('banana squad', true), { taken: 'Banana Squad' });
   assert.equal(t.exists('BANANA squad'), true);
   assert.equal(t.exists('Owls'), false);
   assert.equal(t.exists('x'), false);
@@ -34,7 +34,7 @@ test('create_then_taken_never_joins', () => {
 
 test('find_rejects_non_uuid', () => {
   const t = createTeams({ file: null, max: 10 });
-  const { team } = t.join('Owls', { join: false });
+  const { team } = t.join('Owls', true);
   assert.deepEqual(t.find(team.id), team);
   for (const bad of ['nope', '', null, undefined, 5, {}, '__proto__']) assert.equal(t.find(bad), null);
 });
@@ -42,36 +42,36 @@ test('find_rejects_non_uuid', () => {
 test('persist_and_reload', () => {
   const file = tmp();
   const a = createTeams({ file, max: 10 });
-  const { team } = a.join('Banana Squad', { join: false });
+  const { team } = a.join('Banana Squad', true);
   a.attach(team.id, 's1');
   a.attach(team.id, 's2');
   const b = createTeams({ file, max: 10 });
   assert.deepEqual(b.find(team.id), { id: team.id, name: 'Banana Squad', sessionId: 's2' });
-  assert.deepEqual(b.join('banana squad'), { taken: 'Banana Squad' });
+  assert.deepEqual(b.join('banana squad', true), { taken: 'Banana Squad' });
 });
 
 test('cap_503', () => {
   const t = createTeams({ file: null, max: 2 });
-  t.join('One', { join: false });
-  t.join('Two', { join: false });
-  assert.throws(() => t.join('Three', { join: false }), (e) => e.status === 503 && e.message === 'The team list is full. Ask the organisers.');
-  assert.deepEqual(t.join('two'), { taken: 'Two' });
+  t.join('One', true);
+  t.join('Two', true);
+  assert.throws(() => t.join('Three', true), (e) => e.status === 503 && e.message === 'The team list is full. Ask the organisers.');
+  assert.deepEqual(t.join('two', true), { taken: 'Two' });
 });
 
 test('invalid_400', () => {
   const t = createTeams({ file: null, max: 2 });
-  assert.throws(() => t.join('x', { join: false }), (e) => e.status === 400 && e.message === 'Team names are 2 to 24 letters, numbers and spaces.');
+  assert.throws(() => t.join('x', true), (e) => e.status === 400 && e.message === 'Team names are 2 to 24 letters, numbers and spaces.');
 });
 
 test('partial_tail_ignored', () => {
   const file = tmp();
   const a = createTeams({ file, max: 10 });
-  const { team } = a.join('Owls', { join: false });
+  const { team } = a.join('Owls', true);
   appendFileSync(file, '{"type":"team_created","teamId":"zz","na');
   const b = createTeams({ file, max: 10 });
   assert.equal(b.find('zz'), null);
   assert.equal(b.find(team.id).name, 'Owls');
-  b.join('Lynx', { join: false });
+  b.join('Lynx', true);
   assert.equal(readFileSync(file, 'utf8').trim().split('\n').length, 2);
   assert.equal(createTeams({ file, max: 10 }).exists('Lynx'), true);
 });
@@ -100,11 +100,11 @@ test('replay_ignores_duplicate_names_and_normalises', () => {
 test('test_teams_reset_survives_restart', () => {
   const f = tmp();
   const a = createTeams({ file: f });
-  const A = a.join('Alpha').team;
+  const A = a.join('Alpha', true).team;
   assert.equal(a.reset(), 1);
   a.attach(A.id, 'sid');
   assert.equal(a.find(A.id), null);
-  const B = a.join('Bravo').team;
+  const B = a.join('Bravo', true).team;
   const b = createTeams({ file: f });
   assert.equal(b.exists('Alpha'), false);
   assert.equal(b.find(A.id), null);
@@ -114,8 +114,15 @@ test('test_teams_reset_survives_restart', () => {
 
 test('test_reset_frees_name', () => {
   const t = createTeams({ file: tmp() });
-  t.join('Owls'); t.join('Lynx');
+  t.join('Owls', true); t.join('Lynx', true);
   assert.equal(t.reset(), 2);
   assert.equal(t.exists('Owls'), false);
-  assert.equal(t.join('Owls').created, true);
+  assert.equal(t.join('Owls', true).created, true);
+});
+
+test('join_requires_consent', () => {
+  const t = createTeams();
+  for (const consent of [undefined, false, 'true', 1, {}]) assert.throws(() => t.join('Owls', consent), (e) => e.status === 400 && e.message === 'Tick the box to agree before you play.');
+  assert.equal(t.exists('Owls'), false);
+  assert.equal(t.join('Owls', true).created, true);
 });

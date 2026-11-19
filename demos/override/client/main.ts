@@ -1048,7 +1048,8 @@ function showLeaderboard(opener: string) {
 /** POST /api/team with the body kept on errors, so a 409 can name the team that is taken. */
 async function postTeam(name: string): Promise<{ ok: true } | { ok: false; error: string; taken: string | null }> {
   try {
-    const { ok, status, data: body } = await apiRaw('team', { name });
+    // Only sent after the player ticked the consent box; the server refuses a team without it.
+    const { ok, status, data: body } = await apiRaw('team', { name, consent: true });
     if (ok) return { ok: true };
     const data = body ?? {};
     return { ok: false, error: status === 409 ? '' : String(data.error || failed()), taken: status === 409 && typeof data.taken === 'string' ? data.taken : null };
@@ -1057,10 +1058,23 @@ async function postTeam(name: string): Promise<{ ok: true } | { ok: false; error
 
 /** Renders the check-in form into `host` and wires it once per render. Resolves when a team is set. */
 function mountGate(host: HTMLElement, switching: boolean, onDone: () => void, onCancel?: () => void) {
-  const view: GateView = { name: '', error: '', taken: null, busy: false, switching };
+  const view: GateView = { name: '', error: '', taken: null, busy: false, switching, agreed: false, privacy: false };
   const draw = () => {
     host.innerHTML = teamGate(view);
+    if (view.privacy) {
+      const back = host.querySelector<HTMLButtonElement>('#privacy-back')!;
+      back.addEventListener('click', () => { view.privacy = false; draw(); host.querySelector<HTMLButtonElement>('#privacy-open')?.focus(); });
+      back.focus();
+      return;
+    }
     const input = host.querySelector<HTMLInputElement>('#team-name')!;
+    const box = host.querySelector<HTMLInputElement>('#team-consent')!;
+    box.addEventListener('change', () => {
+      view.agreed = box.checked;
+      host.querySelector<HTMLButtonElement>('#team-submit')!.disabled = view.busy || !view.agreed;
+      host.querySelector('#team-consent-note')!.textContent = plain(view.agreed ? 'team.consent.thanks' : 'team.consent.needed');
+    });
+    host.querySelector('#privacy-open')!.addEventListener('click', () => { view.name = input.value; view.privacy = true; draw(); });
     input.addEventListener('input', () => { view.name = input.value; });
     const send = async (name: string) => {
       view.busy = true; view.error = ''; draw();
@@ -1075,6 +1089,7 @@ function mountGate(host: HTMLElement, switching: boolean, onDone: () => void, on
       event.preventDefault();
       if (view.busy) return;
       view.name = input.value;
+      if (!view.agreed) { view.error = plain('team.consent.needed'); view.taken = null; draw(); host.querySelector<HTMLInputElement>('#team-consent')!.focus(); return; }
       const problem = teamNameError(view.name);
       if (problem) { view.error = problem; view.taken = null; draw(); host.querySelector<HTMLInputElement>('#team-name')!.focus(); return; }
       void send(view.name);

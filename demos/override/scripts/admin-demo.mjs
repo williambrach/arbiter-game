@@ -115,7 +115,7 @@ export async function runDemo({ players = 60, rampMs = 60_000, thinkMs: thinkRaw
     if (ctl.signal.aborted) return;
     every(BEAT_MS, beat);
     beat();
-    await call('POST', '/api/team', { name: `Demo team ${index + 1}`, join: true }); // failure: play teamless
+    await call('POST', '/api/team', { name: `Demo team ${index + 1}`, join: true, consent: true }); // failure: play teamless
     let caseNo = index;
     while (!ctl.signal.aborted) {
       const caseId = cases[caseNo++ % cases.length].id;

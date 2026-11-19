@@ -42,3 +42,19 @@
 .board-card .board-row.you td:first-child { box-shadow: inset 4px 0 var(--gold, #F4B740); }
 .board-card .board-row.you .board-name { color: var(--gold, #F4B740); }
 .board-empty { font-size: 13px; color: var(--muted, #A9BEC6); padding: 14px 0; }
+
+/* Research consent on the team gate: notice, a required box (Start playing stays disabled until it is ticked), and the data notice it links to. */
+.reset-card.team-gate { width: 520px; }
+.team-consent { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; padding: 14px 16px; background: var(--ink, #0F1B22); border: 1px solid #24404D; border-radius: 6px; }
+.consent-notice { margin: 0; font-size: 13px; line-height: 1.6; color: #D9E2E5; }
+.team-gate .link-button { display: inline; min-height: 0; padding: 0; border: 0; background: none; box-shadow: none; font: inherit; font-weight: 700; color: var(--gold, #F4B740); text-decoration: underline; cursor: pointer; }
+.team-gate .link-button:hover { color: #FFD27A; background: none; }
+.team-gate .link-button:focus-visible, .consent-check input:focus-visible, #privacy-back:focus-visible { outline: 2px solid var(--gold, #F4B740); outline-offset: 2px; }
+.team-form .consent-check { display: flex; gap: 12px; align-items: flex-start; min-height: 44px; font-size: 14px; font-weight: 600; line-height: 1.5; cursor: pointer; }
+.team-form .consent-check input { flex: 0 0 auto; width: 22px; height: 22px; min-height: 0; margin: 1px 0 0; padding: 0; accent-color: var(--gold, #F4B740); cursor: pointer; }
+.consent-note { margin: 0; font-size: 12px; line-height: 1.6; color: var(--muted, #A9BEC6); }
+.reset-card.team-gate .primary-button:disabled { opacity: .45; cursor: not-allowed; }
+.privacy-rows { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px 18px; margin: 10px 0 0; font-size: 13px; line-height: 1.6; }
+.privacy-rows dt { font-weight: 700; color: var(--cream, #F4EBD3); }
+.privacy-rows dd { margin: 0; color: #D9E2E5; }
+@media (max-width: 560px) { .privacy-rows { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .privacy-rows dd { margin-bottom: 10px; } }

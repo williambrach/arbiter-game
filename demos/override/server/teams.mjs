@@ -6,6 +6,9 @@ import { appendJsonl, readJsonl } from './dataset.mjs';
 const NAME = /^[\p{L}\p{N}][\p{L}\p{N}\p{M} '’&.\-!?#]*$/u;
 export const NAME_ERROR = 'Team names are 2 to 24 letters, numbers and spaces.';
 export const FULL_ERROR = 'The team list is full. Ask the organisers.';
+export const CONSENT_ERROR = 'Tick the box to agree before you play.';
+// Bump when the check-in notice changes, so each team record says which wording it agreed to.
+export const CONSENT_VERSION = 'research-public-v1';
 
 export function teamName(raw) {
   if (typeof raw !== 'string') return null;
@@ -40,14 +43,16 @@ export function createTeams({ file = null, max = 1000 } = {}) {
   const view = (t) => ({ id: t.id, name: t.name, sessionId: t.sessionId });
 
   // A name belongs to the browser that made it. Nobody joins an existing team by typing its name.
-  function join(raw) {
+  // Playing is a research study: no team is made without the check-in consent.
+  function join(raw, consent = false) {
     const parsed = teamName(raw);
     if (!parsed) throw new RequestError(400, NAME_ERROR);
+    if (consent !== true) throw new RequestError(400, CONSENT_ERROR);
     const known = byKey.get(parsed.key);
     if (known) return { taken: known.name };
     if (byId.size >= max) throw new RequestError(503, FULL_ERROR);
     const id = randomUUID();
-    if (file) appendJsonl(file, { type: 'team_created', teamId: id, name: parsed.name, timestamp: new Date().toISOString() }, 'teams');
+    if (file) appendJsonl(file, { type: 'team_created', teamId: id, name: parsed.name, consent: CONSENT_VERSION, timestamp: new Date().toISOString() }, 'teams');
     return { team: view(add(id, parsed.name)), created: true };
   }
 

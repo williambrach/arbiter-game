@@ -122,7 +122,7 @@ test('leaderboard_section', async ({ page, playwright }) => {
   const ids = [];
   for (const name of names) {
     const ctx = await playwright.request.newContext({ baseURL: GAME });
-    await ctx.post('/api/team', { data: { name } });
+    await ctx.post('/api/team', { data: { name, consent: true } });
     const p = await player(ctx);
     await p.ask('Who knew?', 'pip');
     await p.verdict();

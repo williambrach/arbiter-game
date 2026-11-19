@@ -50,3 +50,18 @@ test('leaderboard_cells', () => {
   assert.ok(html.includes('class="board-row you"') && html.includes('class="cell partial"') && html.includes('<th>Cases</th>'));
   assert.ok(!leaderboardPanel({ rankBy: 'time', teams: [row()] }).includes('class="cell'));
 });
+
+test('consent_gate', () => {
+  const off = gate();
+  assert.ok(off.includes('id="team-consent"') && !/id="team-consent"[^>]*checked/.test(off), 'box starts unticked');
+  assert.match(off, /id="team-submit" class="primary-button" disabled/);
+  assert.ok(off.includes('Tick the box to start playing.') && off.includes('they will be public') && off.includes('id="privacy-open"'));
+  const on = gate({ agreed: true });
+  assert.match(on, /id="team-consent" type="checkbox" checked/);
+  assert.doesNotMatch(on, /id="team-submit"[^>]*disabled/);
+  assert.match(gate({ agreed: true, busy: true }), /id="team-submit"[^>]*disabled/);
+  const p = gate({ privacy: true, name: 'Owls' });
+  assert.ok(p.includes('id="privacy-back"') && !p.includes('id="team-form"'));
+  for (const s of ['Needed to play', 'Made public', 'No deletion', 'open dataset']) assert.ok(p.includes(s), s);
+  assert.ok(!p.includes('How long') && !p.includes('[CONTACT'));
+});

@@ -146,6 +146,7 @@ test('new_team_checks_in_and_the_case_board_takes_real_clicks', async ({ browser
   const page = await context.newPage();
   await page.goto('/');
   await page.locator('#team-name').fill(`Gate ${Date.now().toString(36)}`);
+  await page.locator('#team-consent').check();
   await page.locator('#team-submit').click();
   await expect(page.locator('#begin-button')).toBeVisible();
   const radios = page.locator('#case-list input[type="radio"]');
@@ -197,7 +198,7 @@ for (const [w, h] of [[1280, 720], [1440, 900]]) {
 test('top_bar_keeps_case_and_team_whole_and_the_strip_sits_below', async ({ browser, baseURL }) => {
   const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 900 } });
   const name = `Night Owls ${Date.now().toString(36).slice(-3)}`;
-  expect((await context.request.post('/api/team', { data: { name } })).status()).toBe(200);
+  expect((await context.request.post('/api/team', { data: { name, consent: true } })).status()).toBe(200);
   const page = await context.newPage();
   await begin(page);
   expect(await page.locator('.team-name').evaluate(el => [el.textContent, el.scrollWidth <= el.clientWidth])).toEqual([name, true]);
@@ -432,6 +433,7 @@ test('dark_panels_have_a_gold_primary_and_a_cream_outline_secondary', async ({ b
   expect(contrast(eyebrow.color, card)).toBeGreaterThanOrEqual(4.5);
   // The overlay: its Close is a cream outline with readable text, its eyebrow is bright enough.
   await gate.locator('#team-name').fill(`Dark ${Date.now().toString(36)}`);
+  await gate.locator('#team-consent').check();
   await gate.locator('#team-submit').click();
   await gate.locator('#begin-button').click();
   await gate.locator('#leaderboard-button').click();

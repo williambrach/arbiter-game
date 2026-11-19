@@ -119,7 +119,7 @@ export function createApp({ investigations, accessCode = '', secret = randomByte
           const ip = clientAddress(req, trustProxy);
           const now = Date.now();
           if (typeof input.name === 'string' && !teams.exists(input.name) && !newTeams.allowed(ip, now)) throw new RequestError(429, 'Too many new teams. Try again in a minute.');
-          const joined = teams.join(input.name);
+          const joined = teams.join(input.name, input.consent);
           if (joined.taken) return json(res, 409, { error: `A team called ${joined.taken} is already playing. Pick another name.`, taken: joined.taken });
           if (joined.created) newTeams.add(ip, now);
           setCookie(req, res, 'override_team', joined.team.id);

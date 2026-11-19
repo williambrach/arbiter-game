@@ -25,7 +25,7 @@ function browser(url) {
     if (raw) { const [kv] = raw.split(';'); const i = kv.indexOf('='); jar[kv.slice(0, i)] = kv.slice(i + 1); }
     return { status: res.status, headers: res.headers, body: await res.json().catch(() => null) };
   };
-  return { jar, call, team: (name, join = false) => call('/api/team', 'POST', { name, join }) };
+  return { jar, call, team: (name, join = false) => call('/api/team', 'POST', { name, join, consent: true }) };
 }
 
 // Every grove character marked honest: whatever the cast, exactly one (the bell-minder) is right, so one point.
@@ -234,4 +234,19 @@ test('test_reset_requires_confirm', async t => {
   const r = await post(s, '/admin/event/reset', {});
   assert.equal(r.status, 400);
   assert.deepEqual((await a.call('/api/team')).body, { team: { name: 'Owls' } });
+});
+
+test('team_needs_consent', async t => {
+  const s = await boot(t);
+  const a = browser(s.url);
+  for (const consent of [undefined, false, 'yes', 1]) {
+    const res = await a.call('/api/team', 'POST', { name: 'Owls', consent });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'Tick the box to agree before you play.');
+    assert.equal(a.jar.override_team, undefined);
+  }
+  assert.equal((await a.team('Owls')).status, 200);
+  const made = readFileSync(join(s.dir, 'test', 'teams.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l)).filter(r => r.type === 'team_created');
+  assert.equal(made.length, 1);
+  assert.equal(made[0].consent, 'research-public-v1');
 });

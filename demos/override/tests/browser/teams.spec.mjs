@@ -22,6 +22,7 @@ async function play(request, roles = ALL_HONEST, prior = null, caseId = 'banana-
 async function checkIn(page, name) {
   await page.goto('/');
   await page.locator('#team-name').fill(name);
+  await page.locator('#team-consent').check();
   await page.locator('#team-submit').click();
   await expect(page.locator('#team-button')).toContainText(name);
 }
@@ -41,6 +42,7 @@ test('bad_name_inline', async ({ page }) => {
   page.on('request', r => { if (r.url().endsWith('/api/team') && r.method() === 'POST') posts.push(r.url()); });
   await page.goto('/');
   await page.locator('#team-name').fill('x');
+  await page.locator('#team-consent').check();
   await page.locator('#team-submit').click();
   await expect(page.locator('#team-error')).toContainText('Team names are 2 to 24');
   await expect(page.locator('#team-form')).toBeVisible();
@@ -57,6 +59,7 @@ test('taken_name_cannot_join', async ({ browser, baseURL }) => {
     const page = await b.newPage();
     await page.goto('/');
     await page.locator('#team-name').fill(name.toLowerCase());
+    await page.locator('#team-consent').check();
     await page.locator('#team-submit').click();
     await expect(page.locator('.team-taken')).toContainText(name);
     await expect(page.locator('#team-join')).toHaveCount(0);
@@ -71,6 +74,7 @@ test('reload_keeps_team', async ({ page }) => {
   const name = unique();
   await page.goto('/');
   await page.locator('#team-name').fill(name);
+  await page.locator('#team-consent').check();
   await page.locator('#team-submit').click();
   await expect(page.locator('#team-button')).toContainText(name);
   await page.reload();
@@ -129,4 +133,29 @@ test('topbar_fits_after_check_in', async ({ page }, testInfo) => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
   }
+});
+
+test('consent_required_and_privacy_round_trip', async ({ page }) => {
+  await page.goto('/');
+  const submit = page.locator('#team-submit');
+  await expect(page.locator('#team-consent')).not.toBeChecked();
+  await expect(submit).toBeDisabled();
+  await expect(page.locator('#team-consent-note')).toHaveText('Tick the box to start playing.');
+  const name = unique();
+  await page.locator('#team-name').fill(name);
+  await page.locator('#privacy-open').click();
+  await expect(page.locator('.team-privacy')).toContainText('No deletion');
+  await expect(page.locator('#team-form')).toHaveCount(0);
+  await page.locator('#privacy-back').click();
+  await expect(page.locator('#team-name')).toHaveValue(name);
+  await page.locator('#team-consent').check();
+  await expect(submit).toBeEnabled();
+  await expect(page.locator('#team-consent-note')).toContainText('everything you type will be public');
+  await page.locator('#team-consent').uncheck();
+  await expect(submit).toBeDisabled();
+  await page.locator('#team-name').press('Enter');
+  await expect(page.locator('#team-form')).toBeVisible();
+  await page.locator('#team-consent').check();
+  await submit.click();
+  await expect(page.locator('#team-button')).toContainText(name);
 });

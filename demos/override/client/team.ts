@@ -18,10 +18,32 @@ export function teamNameError(raw: string): string | null {
   return null;
 }
 
-export interface GateView { name: string; error: string; taken: string | null; busy: boolean; switching: boolean }
+/** `agreed` is the research-consent box; `privacy` swaps the form for the data notice. Both default off. */
+export interface GateView { name: string; error: string; taken: string | null; busy: boolean; switching: boolean; agreed?: boolean; privacy?: boolean }
+
+/** The data notice, shown in the gate's place. Its back button returns to the form with name and box kept. */
+export function privacyPanel(): string {
+  const rows = [
+    [t('team.privacy.saved.label'), t('team.privacy.saved.body')],
+    [t('team.privacy.needed.label'), t('team.privacy.needed.body')],
+    [t('team.privacy.why.label'), t('team.privacy.why.body')],
+    [t('team.privacy.public.label'), t('team.privacy.public.body')],
+    [t('team.privacy.where.label'), t('team.privacy.where.body')],
+    [t('team.privacy.delete.label'), t('team.privacy.delete.body')],
+  ].map(([label, body]) => `<dt>${label}</dt><dd>${body}</dd>`).join('');
+  return `<div class="reset-card team-gate team-privacy"><span class="eyebrow">${t('team.privacy.eyebrow')}</span><h2>${t('team.privacy.title')}</h2>` +
+    `<dl class="privacy-rows">${rows}</dl>` +
+    `<div class="team-actions"><button type="button" id="privacy-back" class="secondary-button">${t('team.privacy.back')}</button></div></div>`;
+}
 
 export function teamGate(view: GateView): string {
+  if (view.privacy) return privacyPanel();
   const dis = view.busy ? ' disabled' : '';
+  const agreed = view.agreed === true;
+  const consent = `<div class="team-consent"><p class="consent-notice">${t('team.consent.notice')} ` +
+    `<button type="button" id="privacy-open" class="link-button">${t('team.consent.more')}</button></p>` +
+    `<label class="consent-check" for="team-consent"><input id="team-consent" type="checkbox"${agreed ? ' checked' : ''}><span>${t('team.consent.label')}</span></label>` +
+    `<p id="team-consent-note" class="consent-note">${t(agreed ? 'team.consent.thanks' : 'team.consent.needed')}</p></div>`;
   const taken = view.taken
     ? `<div class="team-taken"><p>${t('team.taken', { name: view.taken })}</p>` +
       `<button type="button" id="team-other" class="primary-button"${dis}>${t('team.other')}</button></div>`
@@ -31,8 +53,8 @@ export function teamGate(view: GateView): string {
     `<p class="team-hint">${t('team.hint')}</p>` +
     `<form id="team-form" class="team-form" novalidate><label for="team-name">${t('team.nameLabel')}</label>` +
     `<input id="team-name" name="team" type="text" maxlength="24" autocomplete="off" value="${esc(view.name)}">` +
-    `<p id="team-error" class="team-error" role="alert">${esc(view.error)}</p>${taken}` +
-    `<div class="team-actions">${cancel}<button type="submit" id="team-submit" class="primary-button"${dis}>${t('team.submit')}</button></div></form></div>`;
+    `${consent}<p id="team-error" class="team-error" role="alert">${esc(view.error)}</p>${taken}` +
+    `<div class="team-actions">${cancel}<button type="submit" id="team-submit" class="primary-button"${view.busy || !agreed ? ' disabled' : ''}>${t('team.submit')}</button></div></form></div>`;
 }
 
 export function leaderboardPanel(board: Pick<Leaderboard, 'rankBy' | 'teams' | 'cases'>): string {

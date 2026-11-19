@@ -101,7 +101,7 @@ test('text_game_override_shown_literally_and_restore_deletes_file', async ({ pag
 
     const ctx = await browser.newContext();
     const game = await ctx.newPage();
-    await game.request.post(`${GAME}/api/team`, { data: { name: `Text ${Date.now() % 100000}` } });
+    await game.request.post(`${GAME}/api/team`, { data: { name: `Text ${Date.now() % 100000}`, consent: true } });
     await game.request.post(`${GAME}/api/start`, { data: { caseId: 'banana-mystery' } });
     await game.goto(`${GAME}/`);
     const button = game.locator('#notebook-button');
