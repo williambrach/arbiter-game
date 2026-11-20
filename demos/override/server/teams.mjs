@@ -23,7 +23,7 @@ export function createTeams({ file = null, max = 1000 } = {}) {
   const byKey = new Map();
 
   function add(id, name) {
-    const team = { id, name, sessionId: null };
+    const team = { id, name, sessionId: null, sessions: Object.create(null) };
     byId.set(id, team);
     byKey.set(name.toLowerCase(), team);
     return team;
@@ -36,11 +36,16 @@ export function createTeams({ file = null, max = 1000 } = {}) {
         if (p && !byId.has(r.teamId) && !byKey.has(p.key)) add(r.teamId, p.name);
       }
       else if (r?.type === 'teams_reset') { byId.clear(); byKey.clear(); }
-      else if (r?.type === 'team_session' && byId.has(r.teamId) && typeof r.sessionId === 'string') byId.get(r.teamId).sessionId = r.sessionId;
+      else if (r?.type === 'team_session' && byId.has(r.teamId) && typeof r.sessionId === 'string') {
+        // Old records carry no caseId: they restore only the current session.
+        const t = byId.get(r.teamId);
+        t.sessionId = r.sessionId;
+        if (typeof r.caseId === 'string' && r.caseId) t.sessions[r.caseId] = r.sessionId;
+      }
     }
   }
 
-  const view = (t) => ({ id: t.id, name: t.name, sessionId: t.sessionId });
+  const view = (t) => ({ id: t.id, name: t.name, sessionId: t.sessionId, sessions: { ...t.sessions } });
 
   // A name belongs to the browser that made it. Nobody joins an existing team by typing its name.
   // Playing is a research study: no team is made without the check-in consent.
@@ -66,12 +71,23 @@ export function createTeams({ file = null, max = 1000 } = {}) {
     return parsed ? byKey.has(parsed.key) : false;
   }
 
-  function attach(id, sessionId) {
+  // The team's saved session of a case, or null.
+  function sessionFor(id, caseId) {
+    const t = typeof id === 'string' ? byId.get(id) : undefined;
+    return (t && typeof caseId === 'string' && t.sessions[caseId]) || null;
+  }
+
+  // Make a session the team's current one, and remember it as the team's game of that case.
+  // Nothing changed means nothing is written.
+  function attach(id, sessionId, caseId) {
     const t = byId.get(id);
     if (!t) return;
+    const saved = typeof caseId === 'string' && caseId ? caseId : null;
+    if (t.sessionId === sessionId && (!saved || t.sessions[saved] === sessionId)) return;
     t.sessionId = sessionId;
+    if (saved) t.sessions[saved] = sessionId;
     if (!file) return;
-    try { appendJsonl(file, { type: 'team_session', teamId: id, sessionId, timestamp: new Date().toISOString() }, 'teams'); } catch (error) {
+    try { appendJsonl(file, { type: 'team_session', teamId: id, sessionId, ...(saved ? { caseId: saved } : {}), timestamp: new Date().toISOString() }, 'teams'); } catch (error) {
       console.error('Could not record the team session.', error);
     }
   }
@@ -85,5 +101,5 @@ export function createTeams({ file = null, max = 1000 } = {}) {
     return n;
   }
 
-  return { join, find, exists, attach, reset };
+  return { join, find, exists, attach, sessionFor, reset };
 }

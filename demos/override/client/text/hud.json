@@ -5,6 +5,7 @@
   "hud.teamTitle": "Change team",
   "hud.notebook": "Notebook",
   "hud.leaderboard": "Leaderboard",
+  "hud.practice": "Practice, not scored",
   "hud.restart": "Reset session",
   "hud.cases": "Cases",
   "hud.export": "Export session",

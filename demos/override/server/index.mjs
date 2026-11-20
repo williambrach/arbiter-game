@@ -85,7 +85,7 @@ export function createApp({ investigations, accessCode = '', secret = randomByte
       const url = new URL(req.url, 'http://localhost');
       if (url.pathname.startsWith('/api/')) {
         const name = url.pathname.slice('/api/'.length);
-        route = ['health', 'access', 'cases', 'state', 'events', 'heartbeat', 'team', 'leaderboard', 'text', ...actions].includes(name) ? `/api/${name}` : '/api/other';
+        route = ['health', 'access', 'cases', 'state', 'events', 'heartbeat', 'team', 'leaderboard', 'text', 'switch', ...actions].includes(name) ? `/api/${name}` : '/api/other';
         if (url.pathname === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true });
         if (req.method === 'POST') {
           if (req.headers['sec-fetch-site'] === 'cross-site') throw new RequestError(403, 'Cross-site requests are not allowed.');
@@ -143,6 +143,32 @@ export function createApp({ investigations, accessCode = '', secret = randomByte
           res.writeHead(200, { 'Content-Type': 'application/x-ndjson', 'Cache-Control': 'no-store', 'Content-Disposition': `attachment; filename="override-${sessionId}.jsonl"` });
           return res.end(body);
         }
+        if (url.pathname === '/api/switch' && req.method === 'POST') {
+          if (typeof input.caseId !== 'string') throw new RequestError(400, 'Unknown case.');
+          const ctxTeam = team ? { id: team.id, name: team.name } : null;
+          if (!team) {
+            // No team: the same as a reset into that case.
+            const view = await investigations.mutate(sessionId, 'reset', { ...input, caseId: input.caseId }, { team: null });
+            if (view.session.id !== sessionId) setCookie(req, res, 'override_session', view.session.id);
+            return json(res, 200, view);
+          }
+          if (!investigations.catalog().some(c => c.id === input.caseId)) throw new RequestError(400, 'Unknown case.');
+          // Resume the team's saved game of this case; an old record has only the current session, which counts if it is this case.
+          let resume = team.sessions[input.caseId] || null;
+          if (!resume && team.sessionId) {
+            const current = investigations.find(team.sessionId);
+            if (current?.session && current.kase.id === input.caseId) resume = team.sessionId;
+          }
+          if (resume && investigations.find(resume)?.session) {
+            const view = investigations.view(resume);
+            teams.attach(team.id, view.session.id, view.session.caseId);
+            return json(res, 200, view);
+          }
+          // No saved game: a new one. The game being left is not reset, so its log stays whole.
+          const view = await investigations.mutate(null, 'start', { caseId: input.caseId }, { team: ctxTeam });
+          teams.attach(team.id, view.session.id, view.session.caseId);
+          return json(res, 200, view);
+        }
         if (req.method === 'POST') {
           if (!actions.includes(name)) throw new RequestError(404, 'Unknown endpoint.');
           // A streaming interview answers in NDJSON lines: accepted, start, delta, reasoning, scrub, then the final view.
@@ -168,7 +194,7 @@ export function createApp({ investigations, accessCode = '', secret = randomByte
             }
           }
           const view = await investigations.mutate(sessionId, name, input, { team: team ? { id: team.id, name: team.name } : null });
-          if (team) { if (view.session.id !== team.sessionId) teams.attach(team.id, view.session.id); }
+          if (team) teams.attach(team.id, view.session.id, view.session.caseId);
           else if (view.session.id !== sessionId) setCookie(req, res, 'override_session', view.session.id);
           return json(res, 200, view);
         }

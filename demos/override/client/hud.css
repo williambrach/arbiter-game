@@ -39,6 +39,7 @@ body { font-family: var(--font); font-variant-numeric: tabular-nums; }
 .timer-panel svg { color: #A9BEC6; }
 #elapsed { font-size: 30px; font-weight: 600; line-height: 1; color: #F4EBD3; letter-spacing: 0; }
 #app .mode-badge { padding: 0; border: 0; background: none; font: 600 12px inherit; letter-spacing: 1px; color: #7FD18B; }
+#app .practice-tag { margin-left: 10px; padding: 2px 8px; border: 1px solid #F4B740; border-radius: 4px; font: 600 12px inherit; letter-spacing: 1px; color: #F4B740; }
 #app .mode-badge:empty { display: none; }
 #app .mode-badge.rehearsal { background: none; color: #F4B740; }
 .team-panel { border-color: #F4B740; cursor: pointer; text-align: left; color: #F4B740; }
