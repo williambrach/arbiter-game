@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Investigations, RequestError } from './session.mjs';
 import { buildMessages, modelConfig } from './interviews.mjs';
@@ -15,6 +16,21 @@ import { loadStatic, serveStatic } from './static.mjs';
 import { Registry, bindCollectors, createGameMetrics, observeGameEvent, observeLlmEvent, observeWrite } from './metrics.mjs';
 import { createTeams } from './teams.mjs';
 import { createLeaderboard } from './leaderboard.mjs';
+
+// Operator-voided game sessions (see leaderboard-voids.json). A missing or broken file voids nothing.
+function loadVoids(file) {
+  try {
+    const list = JSON.parse(readFileSync(file, 'utf8'));
+    const rows = Array.isArray(list) ? list : [];
+    const voids = rows.map(v => v?.sessionId).filter(id => typeof id === 'string');
+    const counts = rows.map(v => v?.countInstead).filter(id => typeof id === 'string');
+    if (voids.length) console.log(`Leaderboard: ${voids.length} voided session${voids.length === 1 ? '' : 's'}, ${counts.length} counted instead (leaderboard-voids.json).`);
+    return { voids, counts };
+  } catch (error) {
+    if (error.code !== 'ENOENT') console.warn(`Leaderboard voids not loaded: ${error.message}`);
+    return { voids: [], counts: [] };
+  }
+}
 import { createAdmin } from './admin.mjs';
 import { createContentStore } from './content.mjs';
 import { loadUiDefaults } from './game-text.mjs';
@@ -283,7 +299,7 @@ export async function startServer(env = process.env, { publicDir = resolve(root,
   // The monitor exists only with an admin token; closures are late-bound and never let it break a game.
   let monitor = null;
   const feed = (method, arg) => { try { monitor?.[method](arg); } catch { /* monitor must not affect games */ } };
-  const board = createLeaderboard(cases);
+  const board = createLeaderboard(cases, loadVoids(join(root, 'server', 'leaderboard-voids.json')));
   // The last 20 system records, seeded once from disk and kept current by onSystem.
   const systemRing = readJsonl(paths.system).slice(-20);
   const onSystem = record => {

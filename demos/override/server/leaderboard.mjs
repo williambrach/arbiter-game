@@ -2,7 +2,11 @@
 // Pure: no I/O, no clock. Only a team's first verdict per case counts.
 // Rank: most points, then fewest coins, then name. Time is shown to admins for information and never ranks.
 
-export function createLeaderboard(cases, { startedAt = 0, now = Date.now } = {}) {
+// `voids`: session ids whose verdict never counts; `counts`: practice sessions that score anyway (the game that
+// replaces a voided one). Operator decisions, kept in server/leaderboard-voids.json; the game logs stay as they are.
+export function createLeaderboard(cases, { startedAt = 0, now = Date.now, voids = [], counts = [] } = {}) {
+  const voided = new Set(voids);
+  const counted = new Set(counts);
   const CACHE_MS = 1000;
   let cache = null; // { at, rows } sorted and ranked, hidden rows included
   const byId = new Map(cases.map((c) => [c.id, c]));
@@ -24,7 +28,7 @@ export function createLeaderboard(cases, { startedAt = 0, now = Date.now } = {})
       if (endedAt !== null && ms > endedAt) return; // the round is over: nothing later counts
       cache = null; // any accepted event may change the standings
       if (e.type === 'session_started') {
-        if (e.practice === true) return; // a replay of a solved case never scores
+        if (e.practice === true && !counted.has(e.sessionId)) return; // a replay of a solved case never scores
         const t = e.team;
         if (!t || typeof t.id !== 'string' || typeof t.name !== 'string' || typeof e.sessionId !== 'string' || !byId.has(e.caseId)) return;
         let team = teams.get(t.id);
@@ -42,6 +46,7 @@ export function createLeaderboard(cases, { startedAt = 0, now = Date.now } = {})
       if (!s) return;
       if (!s.frozen && spent(e.spend?.total)) s.coins = e.spend.total;
       if (e.type !== 'verdict_submitted' || !e.verdict) return;
+      if (voided.has(e.sessionId)) return;
       if (!s.frozen && spent(e.coins?.spent)) s.coins = e.coins.spent;
       const c = teams.get(s.teamId)?.cases.get(s.caseId);
       if (!c || c.verdict) return;

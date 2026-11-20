@@ -1,0 +1,11 @@
+[
+  {
+    "sessionId": "1218619f-95c3-45b3-87c4-86e9418b05f9",
+    "team": "Den hårde kerne",
+    "caseId": "factory-escape",
+    "event": "imadacup-20-11",
+    "decided": "2026-11-20",
+    "reason": "Clocking Out timed out in the background (0 questions) while the team played Friends; its escape verdict locked the case at 0. The team's second Clocking Out game (2/5, 16:50 UTC), started as practice because the timeout had closed the case, counts instead. The game log is unchanged.",
+    "countInstead": "3aa629e0-eea7-446f-a598-340c410d251c"
+  }
+]

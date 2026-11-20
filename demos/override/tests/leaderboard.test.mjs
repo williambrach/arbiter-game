@@ -294,3 +294,30 @@ test('test_end_then_reset_reopens', () => {
   feed(lb, [start('s1', A, cases[0].id, 3.2), roleVerdict('s1', cases[0].id, 1, 3.5)]);
   assert.equal(lb.standings().teams[0].played, 1);
 });
+
+test('voided_session_verdict_skipped_so_a_later_game_counts', () => {
+  const run = (voids) => {
+    let t = 0; const lb = createLeaderboard(cases, { now: () => (t += 2000), voids });
+    feed(lb, [
+      start('timeout', A, 'factory-escape', 0), { type: 'verdict_submitted', sessionId: 'timeout', timestamp: iso(600), verdict: { outcome: 'escaped', score: 0, total: 5 }, coins: { spent: 0 } },
+      start('retry', A, 'factory-escape', 700), roleVerdict('retry', 'factory-escape', 2, 900, { coins: { spent: 9 } }),
+      start('b', B, 'factory-escape', 0), roleVerdict('b', 'factory-escape', 1, 300, { coins: { spent: 2 } }),
+    ]);
+    return lb.standings({}).teams.map(r => [r.name, r.points, r.coins]);
+  };
+  // Without the void the timed-out game is the team's first verdict: 0 points, and the retry is ignored.
+  assert.deepEqual(run([]), [['Owls', 1, 2], ['Banana Squad', 0, 0]]);
+  // Voided: the retry counts, with its coins; the other team is untouched.
+  assert.deepEqual(run(['timeout']), [['Banana Squad', 2, 9], ['Owls', 1, 2]]);
+});
+
+test('a practice game listed in counts scores; other practice games still do not', () => {
+  let t = 0; const lb = createLeaderboard(cases, { now: () => (t += 2000), voids: ['timeout'], counts: ['retry'] });
+  feed(lb, [
+    start('timeout', A, 'factory-escape', 0), { type: 'verdict_submitted', sessionId: 'timeout', timestamp: iso(600), verdict: { outcome: 'escaped', score: 0, total: 5 } },
+    start('retry', A, 'factory-escape', 700, { practice: true }), roleVerdict('retry', 'factory-escape', 2, 900, { coins: { spent: 9 } }),
+    start('p', B, 'factory-escape', 0, { practice: true }), roleVerdict('p', 'factory-escape', 5, 300),
+  ]);
+  // Owls only played practice: not on the board at all.
+  assert.deepEqual(lb.standings({}).teams.map(r => [r.name, r.points, r.coins]), [['Banana Squad', 2, 9]]);
+});
