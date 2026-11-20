@@ -240,6 +240,16 @@ test('factory_escaper_walks_off: the escaper walks to the exit door and is gone'
   await resetFactory(page);
 });
 
+test('factory_no_guess_stop: no YOUR GUESS stop or tag; the rail verdict button still opens the report', async ({ page }) => {
+  await start(page);
+  expect(await page.evaluate(() => 'report' in window.walkingTestGame.scene.getScene('banana-grove').stops)).toBe(false);
+  const texts = await page.locator('#station .station-labels .station-label').allTextContents();
+  expect(texts.join(' ')).not.toMatch(/YOUR GUESS/i);
+  await askAllByApi(page);
+  await page.locator('.verdict-button').click();
+  await expect(page.locator('#app')).toHaveAttribute('data-view', 'lineup');
+});
+
 test('factory_verdict_win: the right lineup wins, a wrong one gets the other feedback', async ({ page }, testInfo) => {
   testInfo.setTimeout(90_000);
   await start(page);

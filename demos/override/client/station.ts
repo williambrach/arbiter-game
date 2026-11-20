@@ -32,7 +32,8 @@ function buildStops(world: WorldPack, cast: Character[], marks: Map<string, Evid
   const stops: Record<string, Stop> = {
     briefing: { ...(world.stops?.briefing ?? { x: 244, y: 276 }), title: plain('station.briefing.title'), label: compact ? '' : plain('station.briefing.label') },
   };
-  if (!compact) stops.report = { ...(world.stops?.report ?? { x: 132, y: 276 }), title: plain('station.report.title'), label: plain('station.report.label') };
+  const report = world.stops ? world.stops.report : { x: 132, y: 276 };
+  if (!compact && report) stops.report = { ...report, title: plain('station.report.title'), label: plain('station.report.label') };
   cast.forEach((c, slot) => { stops[c.id] = { ...world.slots[slot], title: plain('station.ask', { name: c.name }), label: c.name.toUpperCase() }; });
   // Evidence spots are stops too: no name tag, the [E] prompt sits just above the item.
   world.evidence?.forEach(e => { stops[evidenceKey(e.id)] = { x: e.x, y: e.y, title: plain('station.examine', { title: marks.get(e.id)?.title ?? e.id }), label: '', bare: true }; });
@@ -504,7 +505,7 @@ export class Station extends Phaser.Scene {
     if (painted) this.add.image(floorArt.x, floorArt.y, floorKey).setOrigin(0, 0).setScale(floorArt.scale).setDepth(-8);
     else this.add.rectangle(0, 0, width, height, 0xffffff, .06).setOrigin(0, 0).setDepth(0);
     this.world.floor?.props.forEach(p => this.add.image(p.x, p.y, `factory-prop-${p.id}`).setOrigin(.5, 1).setScale(art.scale).setDepth(p.y));
-    (['briefing', 'report'] as const).forEach(id => this.add.ellipse(this.stops[id].x, this.stops[id].y, 30, 9, 0xffffff, .14).setDepth(1));
+    (['briefing', 'report'] as const).forEach(id => { const p = this.stops[id]; if (p) this.add.ellipse(p.x, p.y, 30, 9, 0xffffff, .14).setDepth(1); });
   }
 
   /** A painted hall: the fill beyond the image, the image lowest, then the desk props and the evidence items with their markers. */
