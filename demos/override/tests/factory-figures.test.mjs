@@ -60,7 +60,8 @@ test('slots_clear', () => {
 });
 
 test('stops_clear', () => {
-  const pts = { report: factory.stops.report, briefing: factory.stops.briefing };
+  assert.equal(factory.stops.report, undefined, 'the YOUR GUESS stop stays removed');
+  const pts = { briefing: factory.stops.briefing };
   const props = factory.floor.props.map(propBox);
   const workers = factory.slots.map(s => ff.figureBox(art, s));
   const inField = box => box.left >= 4 && box.top >= 4 && box.left + box.width <= 476 && box.top + box.height <= 336;
