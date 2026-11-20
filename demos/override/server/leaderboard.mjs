@@ -24,6 +24,7 @@ export function createLeaderboard(cases, { startedAt = 0, now = Date.now } = {})
       if (endedAt !== null && ms > endedAt) return; // the round is over: nothing later counts
       cache = null; // any accepted event may change the standings
       if (e.type === 'session_started') {
+        if (e.practice === true) return; // a replay of a solved case never scores
         const t = e.team;
         if (!t || typeof t.id !== 'string' || typeof t.name !== 'string' || typeof e.sessionId !== 'string' || !byId.has(e.caseId)) return;
         let team = teams.get(t.id);

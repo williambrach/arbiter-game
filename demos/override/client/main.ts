@@ -26,7 +26,7 @@ import { renderNotebook } from './notebook';
 import { createStage, type Stage } from './stage';
 import { postHeartbeat, startHeartbeat } from './heartbeat';
 import { worldFor } from './worlds';
-import { hudShell, castCard } from './hud.ts';
+import { hudShell, castCard, practiceTag } from './hud.ts';
 import { readNdjson, createStreamFold, isNdjson, type StreamLine } from './stream.ts';
 import { createTyper, createThrottle } from './stream-ui.ts';
 import { interviewPanel, briefingPanel, evidencePanel } from './dialogue.ts';
@@ -552,7 +552,7 @@ async function onClick(event: MouseEvent) {
     return;
   }
   if (button.id === 'begin-button') {
-    if (state.session && selectedCase && selectedCase !== state.caseId) { await startCase(selectedCase); return; }
+    if (state.session && selectedCase && selectedCase !== state.caseId) { await startCase(selectedCase, 'switch'); return; }
     if (!state.session && !(await action('start', selectedCase ? { caseId: selectedCase } : {}))) return;
     dropCaseParam();
     introVisible = false;
@@ -567,9 +567,10 @@ async function onClick(event: MouseEvent) {
   if (button.id === 'leaderboard-button' || button.id === 'debrief-leaderboard') showLeaderboard(`#${button.id}`);
   if (button.id === 'leaderboard-close') closeOverlay();
   if (button.id === 'cancel-reset' || button.id === 'cancel-restart') closeOverlay();
-  if (button.id === 'confirm-reset') await startCase(selectedCase || state.caseId);
-  if (button.id === 'confirm-restart') await startCase(state.caseId);
-  if (button.id === 'next-case') await startCase(button.dataset.case!);
+  // Changing case switches to the team's saved game there; only the same case restarts (a reset).
+  if (button.id === 'confirm-reset') { const target = selectedCase || state.caseId; await startCase(target, target === state.caseId ? 'reset' : 'switch'); }
+  if (button.id === 'confirm-restart') await startCase(state.caseId, 'reset');
+  if (button.id === 'next-case') await startCase(button.dataset.case!, 'switch');
   if (button.id === 'export-button' || button.id === 'debrief-export') window.location.assign('/api/events');
 }
 
@@ -580,8 +581,8 @@ function savedPanel(): LocationId {
   return saved === 'briefing' || saved === 'report' || (saved !== undefined && ids().includes(saved)) ? saved : 'briefing';
 }
 
-/** Opens a fresh session on a case. The old session's records stay on the server. */
-async function startCase(caseId: string) {
+/** Opens a case: 'switch' resumes the team's saved game there (or starts one) and leaves the old one saved; 'reset' restarts. */
+async function startCase(caseId: string, how: 'switch' | 'reset') {
   stopTalking();
   // Reset the view inside action(): its closing render() already shows the new case, and a panel
   // from the old cast (an open interview) would throw there and leave the case board hanging.
@@ -591,7 +592,7 @@ async function startCase(caseId: string) {
     resetTalkView();
     panel = 'briefing'; threadOpen = false; introVisible = false; dialogueOpen = true;
   };
-  if (!(await action('reset', { caseId }, fresh))) return;
+  if (!(await action(how, { caseId }, fresh))) return;
   dropCaseParam();
   station.clearBubbles(); station.resetPosition();
   document.querySelector('#overlay-root')!.innerHTML = ''; render();
@@ -820,6 +821,8 @@ function renderTools() {
   counter.hidden = !active;
   const tip = document.querySelector<HTMLElement>('#coin-tip');
   if (tip) tip.textContent = coinHint(Boolean(state.talk));
+  const tag = document.querySelector<HTMLElement>('#practice-tag');
+  if (tag) tag.innerHTML = practiceTag(Boolean(session?.practice));
   if (session) {
     const { budget, spent } = session.economy;
     counter.innerHTML = budget == null ? `<span class="coin-num">${spent}</span><span class="hud-label">${t('main.coins.spent')}</span>` : `<span class="coin-num">${budget - spent} / ${budget}</span><span class="hud-label">${t('main.coins.left')}</span>`;

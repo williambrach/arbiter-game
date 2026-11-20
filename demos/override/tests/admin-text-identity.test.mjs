@@ -18,7 +18,8 @@ const PINS = {
   // Friends v2.1.0 (two answers: conspiracist or not): re-pinned on purpose; prompts differ only by the version string.
   // Friends and Clocking Out re-pinned again when they swapped places (order 4 and 5): only contentHash and view move.
   'friends-roundtable': { contentHash: 'dbb9e515258d', view: 'a47fe76bbd76', interview: 'dbf2e6248e6f', thread: '8b33f124d5ca' },
-  'factory-escape': { contentHash: 'b79760d0b172', view: '85e187dd8d71', interview: 'c879fd6e80e6', thread: '612f762dbdc3' },
+  // Clocking Out v2.0.0 (ROT13 glitches, own rules): re-pinned on purpose.
+  'factory-escape': { contentHash: '3baa4ac55473', view: '5c324a1a6e02', interview: '63d013622765', thread: 'd3311ed62955' },
   'department-murder': { contentHash: 'a73b50757e8f', view: '141114d8179a', interview: 'cd724c0169ea', thread: '6097f5e2149a' },
   // Castelvento v2.1.0 (Federico's quiet slips, guard.words; each part carries its own rules, monkey layout): re-pinned on purpose.
   'renaissance-traveler': { contentHash: 'b924a253e9dd', view: '2f6ca4c9c2ab', interview: '08398e544fa5', thread: '33e29f7ce4dd' },

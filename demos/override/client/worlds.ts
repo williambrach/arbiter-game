@@ -24,8 +24,8 @@ export interface WorldPack {
   figures?: FigureArt;
   /** Factory floor: props by bottom-centre point, and the exit door's foot. */
   floor?: { props: FloorProp[]; exit: { x: number; y: number } };
-  /** Where the shared "YOUR GUESS" and "START HERE" stops stand. Absent: the walking worlds' fixed points (132,276) and (244,276). */
-  stops?: { report: SlotPoint; briefing: SlotPoint };
+  /** Where the shared "YOUR GUESS" and "START HERE" stops stand. Absent: the walking worlds' fixed points (132,276) and (244,276). A world with stops but no report point has no YOUR GUESS stop: the rail's verdict button is the control. */
+  stops?: { report?: SlotPoint; briefing: SlotPoint };
   /** Painted backdrop (department): drawn at scale world units per image px, top-left at (x, y); fill beyond it. */
   backdrop?: { url: string; width: number; height: number; scale: number; x: number; y: number; fill: string };
   /** Painted floor under the factory's own props (factory): the image lowest, at scale world units per image px,
@@ -117,8 +117,8 @@ const factory: WorldPack = {
   // so the wall props, whose feet stand at y 100, sit on the floor just in front of the wall.
   // The fill is the concrete at the image's side edges, for windows wider than 16:9.
   floorArt: { url: '/assets/factory/factory-floor.png', width: 1536, height: 1024, scale: 5 / 12, x: -88, y: -20, fill: '#7b755e' },
-  // Clear of every worker and prop box: the spawn stands just above the parts bin, the guess point on open floor between Ama, Vera and Bruno.
-  stops: { report: { x: 290, y: 245 }, briefing: { x: 240, y: 266 } },
+  // Clear of every worker and prop box: the spawn stands just above the parts bin. No guess stop: the rail's verdict button is the control.
+  stops: { briefing: { x: 240, y: 266 } },
   floor: {
     props: [
       { id: 'conveyor', x: 50, y: 100 },

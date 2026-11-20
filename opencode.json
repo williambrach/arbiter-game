@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "pectra": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Pectra",
+      "options": {
+        "baseURL": "http://127.0.0.1:8000/v1",
+        "apiKey": "unused"
+      },
+      "models": {
+        "Qwen3.8-Flash-Next": {
+          "name": "Qwen3.8 Flash Next",
+          "limit": {
+            "context": 262144,
+            "output": 16384
+          }
+        }
+      }
+    }
+  },
+  "model": "pectra/Qwen3.8-Flash-Next"
+}

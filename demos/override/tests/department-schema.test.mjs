@@ -121,12 +121,12 @@ const BASE = {
     "contentHash": "dbb9e515258d"
   },
   "factory-escape": {
-    "view": "85e187dd8d718264",
-    "chars": "f92df788e9ae6d4c",
-    "roles": "8205567f12253456",
-    "msgs": "e3bd2695f2b55e70",
-    "thread": "48e261ec2459b232",
-    "contentHash": "b79760d0b172"
+    "view": "5c324a1a6e02de57",
+    "chars": "7ea6c34d014aff22",
+    "roles": "347db6523ae35622",
+    "msgs": "890ccc238fdc5f12",
+    "thread": "bc88438461f75780",
+    "contentHash": "3baa4ac55473"
   }
 };
 

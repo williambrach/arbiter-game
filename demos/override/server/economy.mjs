@@ -16,7 +16,7 @@ export function economyRules({ budget = null, inspect = null } = {}) {
 export function createWallet(rules) {
   const charges = {};
   for (const [tool, max] of Object.entries(rules.charges)) charges[tool] = { max, used: 0 };
-  return { budget: rules.budget, spent: 0, costs: { ...rules.costs }, charges };
+  return { budget: rules.budget, spent: 0, ...(Number.isFinite(rules.carried) && rules.carried > 0 ? { carried: rules.carried } : {}), costs: { ...rules.costs }, charges };
 }
 
 function assertKnown(wallet, tools) {
@@ -33,7 +33,7 @@ export function quote(wallet, tools, reserve) {
     if (c && c.max != null && c.used >= c.max) return { cost, ok: false, reason: `No ${LABELS[t]} left.` };
   }
   if (wallet.budget == null) return { cost, ok: true, reason: null };
-  const left = wallet.budget - wallet.spent;
+  const left = wallet.budget - wallet.spent - (wallet.carried ?? 0);
   if (cost > left) {
     return { cost, ok: false, reason: `Not enough coins: this costs ${cost} and you have ${left} left.` };
   }

@@ -27,6 +27,8 @@ export interface Session {
   /** True when the character's latest line has reasoning to inspect. */
   inspectable: Record<CharacterId, boolean>;
   team: { id: string; name: string } | null;
+  /** True for a replay of a solved case: it never scores. */
+  practice?: boolean;
   /** Present only when the case has a hidden deadline. */
   alarm?: Alarm;
   /** Present only for cases with evidence: examined ids, and the examined cards in examine order. */
@@ -52,7 +54,7 @@ export interface CaseState {
 
 export type Tool = 'ask' | 'inspect' | 'continue';
 export interface Economy {
-  budget: number | null; spent: number; costs: Record<Tool, number>;
+  budget: number | null; spent: number; carried?: number; costs: Record<Tool, number>;
   charges: Record<'inspect' | 'continue', { max: number | null; used: number }>;
 }
 export interface ThreadLine { character: CharacterId; text: string; round: number; timestamp: string }
