@@ -72,7 +72,7 @@ test('escape_feedback_used', async t => {
   await act('start');
   late(game);
   game.expire(Date.now());
-  assert.equal(game.view().debrief.feedback, 'The shift bell rang before you named anyone. Next time, watch who keeps checking the clock and the exit.');
+  assert.equal(game.view().debrief.feedback, 'The clock ran out before you named anyone. Next time, crack the code sooner: the glitches are short.');
   const base = Object.fromEntries(Object.entries(factory).filter(([k]) => !['world', 'contentHash'].includes(k)));
   assert.throws(() => defineCase({ ...base, world: 'factory', deadline: { ...factory.deadline, escape: { ...factory.deadline.escape, feedback: '' } } }));
 });

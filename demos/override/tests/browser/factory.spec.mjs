@@ -3,6 +3,9 @@ import { walkSheetTests } from './walk-sheet.mjs';
 import { castOf, sessionIdOf, lockIn } from './cast.mjs';
 import kase from '../../server/cases/factory-escape.mjs';
 
+// Feedback names a worker with a placeholder such as {escaper}: substitute the name of the character the cast dealt that part.
+const withName = (text, cast) => text.replace(/\{(\w+)\}/g, (_, part) => NAMES[Object.keys(cast).find(k => cast[k] === part)]);
+
 // Runs against the factory server (port 4324, dev tools on, 45 s deadline): see the factory project in playwright.config.mjs.
 const WORKERS = ['marta', 'ama', 'vera', 'theo', 'bruno'];
 const NAMES = { marta: 'Marta', ama: 'Ama', vera: 'Vera', theo: 'Theo', bruno: 'Bruno' };
@@ -258,7 +261,7 @@ test('factory_verdict_win: the right lineup wins, a wrong one gets the other fee
   expect(Object.values(cast).sort()).toEqual(['believer', 'checker', 'escaper', 'line', 'packer']);
   await lockIn(page, picksFor(cast));
   await expect(page.locator('.verdict-summary')).toContainText('5 / 5');
-  await expect(page.locator('#panel')).toContainText(kase.answer.feedback.correct);
+  await expect(page.locator('#panel')).toContainText(withName(kase.answer.feedback.correct, cast));
   // A second game with the escaper and believer swapped.
   await resetFactory(page);
   await askAllByApi(page);
@@ -268,7 +271,7 @@ test('factory_verdict_win: the right lineup wins, a wrong one gets the other fee
   const bel = Object.keys(cast2).find(k => cast2[k] === 'believer');
   [wrong[esc], wrong[bel]] = [wrong[bel], wrong[esc]];
   await lockIn(page, wrong);
-  await expect(page.locator('#panel')).toContainText(kase.answer.feedback.other);
+  await expect(page.locator('#panel')).toContainText(withName(kase.answer.feedback.other, cast2));
 });
 
 test('factory_small_screen: every figure sits inside the station at 390x844', async ({ page }, testInfo) => {
