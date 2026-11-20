@@ -46,7 +46,7 @@ test('persist_and_reload', () => {
   a.attach(team.id, 's1');
   a.attach(team.id, 's2');
   const b = createTeams({ file, max: 10 });
-  assert.deepEqual(b.find(team.id), { id: team.id, name: 'Banana Squad', sessionId: 's2' });
+  assert.deepEqual(b.find(team.id), { id: team.id, name: 'Banana Squad', sessionId: 's2', sessions: {} });
   assert.deepEqual(b.join('banana squad', true), { taken: 'Banana Squad' });
 });
 
@@ -125,4 +125,44 @@ test('join_requires_consent', () => {
   for (const consent of [undefined, false, 'true', 1, {}]) assert.throws(() => t.join('Owls', consent), (e) => e.status === 400 && e.message === 'Tick the box to agree before you play.');
   assert.equal(t.exists('Owls'), false);
   assert.equal(t.join('Owls', true).created, true);
+});
+
+test('attach_keeps_a_session_per_case', () => {
+  const file = tmp();
+  const a = createTeams({ file });
+  const { team } = a.join('Owls', true);
+  a.attach(team.id, 's1', 'banana');
+  a.attach(team.id, 's2', 'tower');
+  assert.equal(a.sessionFor(team.id, 'banana'), 's1');
+  assert.equal(a.sessionFor(team.id, 'tower'), 's2');
+  assert.equal(a.sessionFor(team.id, 'other'), null);
+  assert.equal(a.sessionFor('nope', 'banana'), null);
+  assert.deepEqual(a.find(team.id), { id: team.id, name: 'Owls', sessionId: 's2', sessions: { banana: 's1', tower: 's2' } });
+  a.attach(team.id, 's1', 'banana');
+  const b = createTeams({ file });
+  assert.deepEqual(b.find(team.id).sessions, { banana: 's1', tower: 's2' });
+  assert.equal(b.find(team.id).sessionId, 's1');
+});
+
+test('attach_no_change_writes_nothing', () => {
+  const file = tmp();
+  const a = createTeams({ file });
+  const { team } = a.join('Owls', true);
+  a.attach(team.id, 's1', 'banana');
+  const lines = () => readFileSync(file, 'utf8').trim().split('\n').length;
+  const n = lines();
+  a.attach(team.id, 's1', 'banana');
+  a.attach(team.id, 's1');
+  assert.equal(lines(), n);
+});
+
+test('legacy_records_restore_only_the_current_session', () => {
+  const file = tmp();
+  const rec = (r) => appendFileSync(file, JSON.stringify(r) + '\n');
+  rec({ type: 'team_created', teamId: 't1', name: 'Owls', timestamp: 'x' });
+  rec({ type: 'team_session', teamId: 't1', sessionId: 's1', timestamp: 'x' });
+  rec({ type: 'team_session', teamId: 't1', sessionId: 's2', timestamp: 'x' });
+  const t = createTeams({ file }).find('t1');
+  assert.equal(t.sessionId, 's2');
+  assert.deepEqual(t.sessions, {});
 });

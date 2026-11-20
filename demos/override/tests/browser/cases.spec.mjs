@@ -123,6 +123,8 @@ test('a returning player can switch case from the intro', async ({ page }) => {
 test('solving marks the case and offers the next one', async ({ page }) => {
   await page.goto('/?case=friends-roundtable');
   await page.locator('#begin-button').click();
+  // Until the start lands, the rail behind the intro shows the default case's cast; read it only once Friends is up.
+  await expect(page.locator('#panel h2')).toHaveText('Find the conspiracists.');
   await lockPerfect(page, await interviewAll(page));
   const ordered = (await (await page.request.get('/api/cases')).json()).cases.sort((a, b) => a.order - b.order);
   const next = ordered[ordered.findIndex(c => c.id === 'friends-roundtable') + 1] || ordered[0];

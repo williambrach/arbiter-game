@@ -30,6 +30,9 @@ const ICONS = {
 const iconButton = (id: string, label: string, path: string): string =>
   `<button type="button" class="hud-icon" id="${id}" title="${label}">${svg(path, 22)}<span class="sr-only">${label}</span></button>`;
 
+/** The tag for a replay of a solved case: it plays like the case but never scores. */
+export const practiceTag = (practice: boolean): string => practice ? `<span class="practice-tag">${t('hud.practice')}</span>` : '';
+
 /** The whole game screen: the world fills the window and the HUD floats over it. Dynamic parts are filled by main.ts. */
 export function hudShell(v: { teamName: string; headline: string; topline: string }): string {
   return `<div id="station"></div><div id="roundtable" hidden></div><div class="hud-scrim" aria-hidden="true"></div>
@@ -51,7 +54,7 @@ export function hudShell(v: { teamName: string; headline: string; topline: strin
         ${iconButton('export-button', t('hud.export'), ICONS.exportArrow)}
       </div>
     </header>
-    <div class="mode-strip"><div class="mode-strip-body"><span id="mode-badge" class="mode-badge"></span></div></div>
+    <div class="mode-strip"><div class="mode-strip-body"><span id="mode-badge" class="mode-badge"></span><span id="practice-tag" class="practice-tag-slot"></span></div></div>
     <div class="hud-body">
       <div class="hud-rail">
         <nav class="room-nav" id="room-nav"></nav>

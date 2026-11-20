@@ -96,7 +96,7 @@ export function replay(events, cases, lastSaid = null) {
       s = { id: e.sessionId, revision: 0, startedAt: new Date(Date.parse(e.timestamp) - e.elapsedMs).toISOString(),
         status: 'active', caseId: kase.id, cast: { ...e.cast }, talkSeed: e.talkSeed ?? null,
         location: 'briefing', interviews: Object.fromEntries(kase.characters.map(c => [c.id, []])), verdict: null,
-        economy: createWallet(e.economy ?? economyRules({})), thread: [], chatter: { round: 0, pending: 0 }, inspections: [],
+        economy: createWallet(e.economy ?? economyRules({})), practice: e.practice === true, thread: [], chatter: { round: 0, pending: 0 }, inspections: [],
         team: e.team && typeof e.team.id === 'string' && typeof e.team.name === 'string' ? { id: e.team.id, name: e.team.name } : null };
       if (kase.evidence) s.examined = [];
       if (kase.talk) s.talk = newTalkState(kase);
@@ -317,7 +317,11 @@ export class Investigation {
     const cast = s?.cast ?? identityCast(kase);
     let session = null;
     if (s) {
-      session = structuredClone(s); delete session.cast; delete session.talkSeed; session.inspectable = this.inspectable();
+      session = structuredClone(s); delete session.cast;
+      // Players see carried + spent; the stored wallet and the logged totals stay per-session.
+      session.economy.carried = s.economy.carried ?? 0;
+      session.economy.spent = s.economy.spent + session.economy.carried;
+      session.practice = s.practice === true; delete session.talkSeed; session.inspectable = this.inspectable();
       if (kase.talk) {
         session.talk = {
           asked: structuredClone(s.talk.asked), quotes: structuredClone(s.talk.quotes),
@@ -459,9 +463,16 @@ export class Investigation {
         const { characters } = this.kase;
         this.expire(Date.now());
         if (action === 'reset') {
+          // Same case, still open: coins carry on. Same case after a verdict: practice, no scoring.
+          // Another case: a clean start.
+          const sameCase = s.caseId === (kase ?? this.kase).id;
+          const closed = s.status === 'closed' || s.verdict != null;
+          const carry = !sameCase ? { carried: 0, practice: false }
+            : closed ? { carried: 0, practice: true }
+            : { carried: (s.economy.carried ?? 0) + s.economy.spent, practice: s.practice === true };
           this.log('session_reset', { completed: s.status === 'closed' });
           if (kase) this.kase = kase;
-          this.start(assignment, team);
+          this.start(assignment, team, carry);
         } else {
           if (s.status !== 'active') throw new RequestError(409, 'This case is closed. Review the debrief or start a new session.');
           if (action === 'visit') {
@@ -509,7 +520,7 @@ export class Investigation {
     } finally { this.busy = false; }
   }
 
-  start(assignment = 'default', team = null) {
+  start(assignment = 'default', team = null, { carried = 0, practice = false } = {}) {
     this.reasoning.clear();
     this.lastSaid.clear();
     const rules = this.config.economy ?? economyRules({});
@@ -522,12 +533,12 @@ export class Investigation {
       id: randomUUID(), revision: 0, startedAt: new Date().toISOString(),
       status: 'active', caseId: this.kase.id, cast, talkSeed,
       location: 'briefing', interviews: Object.fromEntries(this.kase.characters.map(c => [c.id, []])), verdict: null,
-      economy: createWallet(rules), thread: [], chatter: { round: 0, pending: 0 }, inspections: [],
+      economy: createWallet({ ...rules, carried }), practice, thread: [], chatter: { round: 0, pending: 0 }, inspections: [],
       team: team && typeof team.id === 'string' && typeof team.name === 'string' ? { id: team.id, name: team.name } : null,
     };
     if (this.kase.evidence) this.session.examined = [];
     if (this.kase.talk) this.session.talk = newTalkState(this.kase);
-    this.log('session_started', { assignment, economy: rules, cast, talkSeed, env: null, appCommit: null, appDirty: null, endpointsHash: this.config.endpointsHash ?? null, team: this.session.team, ...this.meta });
+    this.log('session_started', { assignment, economy: { ...rules, carried }, practice, cast, talkSeed, env: null, appCommit: null, appDirty: null, endpointsHash: this.config.endpointsHash ?? null, team: this.session.team, ...this.meta });
     this.log('briefing_viewed');
   }
 
