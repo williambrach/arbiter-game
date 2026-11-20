@@ -84,13 +84,16 @@ test('allowHttp: plain HTTP to a non-local host only when the endpoint opts in',
   assert.notEqual(loadEndpoints(env, file({ allowHttp: true })).hash, loadEndpoints({ ...env }, () => JSON.stringify([{ name: 'a', baseUrl: 'http://localhost:8000/v1', model: 'ma', keyEnv: 'K' }])).hash);
 });
 
-test('the shipyard endpoints file loads: glm, deepseek, qwen, mimir in order', () => {
+test('the shipyard endpoints file loads: glm, deepseek, mimir in order', () => {
   const path = new URL('../ops/endpoints.shipyard.json', import.meta.url);
   const { endpoints } = loadEndpoints({ OVERRIDE_ENDPOINTS: 'x', OVERRIDE_LLM_API_KEY: 'k1', OVERRIDE_SELFHOSTED_KEY: 'none' }, () => readFileSync(path, 'utf8'));
-  assert.deepEqual(endpoints.map(e => e.name), ['glm', 'deepseek', 'qwen', 'mimir']);
+  assert.deepEqual(endpoints.map(e => e.name), ['glm', 'deepseek', 'mimir']);
+  // SDU takes low/high/max (not medium) for both models.
+  assert.deepEqual(endpoints.slice(0, 2).map(e => e.reasoningEffort), ['high', 'high']);
+  // The self-hosted box: plain HTTP, no real key, never the UCloud key.
   assert.equal(endpoints[2].allowHttp, true);
   assert.equal(endpoints[2].key, 'none');
-  assert.equal(endpoints[2].reasoningEffort, 'xhigh');
+  assert.equal(endpoints[2].reasoningEffort, null);
   assert.equal(endpoints[0].allowHttp, undefined);
 });
 
