@@ -103,12 +103,15 @@ def export(event_dir, out):
             q = q_by_id.get(a.get('questionEventId'), {})
             p = a.get('provenance') or {}
             pr = provider.get(a.get('questionEventId'), {})
+            # The game log holds reasoning only once a team inspects it; the answer's own trace always has it.
+            answered = next((traces[t] for t in reversed(p.get('traceIds') or []) if t in traces), None)
+            reasoning = a.get('reasoning') or ((answered or {}).get('response') or {}).get('reasoning')
             interviews.append({
                 'game_id': sid, 'team_id': team.get('id'), 'case_id': case, 'character_id': a.get('character'),
                 'part': cast.get(a.get('character')), 'role': truth.get(a.get('character')),
                 'question_event_id': a.get('questionEventId'), 'answer_event_id': a['eventId'],
                 'asked_at': q.get('timestamp'), 'answered_at': a['timestamp'], 'elapsed_ms': a.get('elapsedMs'),
-                'question': a.get('question'), 'answer': a.get('answer'), 'reasoning': a.get('reasoning'),
+                'question': a.get('question'), 'answer': a.get('answer'), 'reasoning': reasoning,
                 'reasoning_inspected': a['eventId'] in inspected,
                 'endpoint': p.get('endpoint'), 'model': p.get('providerModel'), 'attempts': p.get('attempts'),
                 'prompt_tokens': p.get('promptTokens'), 'completion_tokens': p.get('completionTokens'),
