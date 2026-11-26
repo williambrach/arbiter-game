@@ -1,15 +1,13 @@
-"""Export one event's game logs as a Hugging Face dataset (Parquet tables + raw JSONL + card).
+"""Export one event's game logs as a Hugging Face dataset: one Parquet table (one row per game) + raw JSONL + card.
 
 Usage (from demos/override):
   uv run --with pyarrow --with huggingface_hub scripts/export_dataset.py \
       --event-dir <snapshot>/imadacup-20-11 --out <dir> [--push <org-or-user>/arbiter-imadacup-traces]
 
-Reads only the snapshot. Tables, one row per:
-  games        game (session): team, case, outcome, guessed vs true roles, score, coins, leaderboard status
-  interviews   question: who was asked, their hidden part and role, question, answer, reasoning, tokens, latency
-  talk_lines   "Let them talk" line
-  llm_calls    model call (trace): full prompt, reply, reasoning, settings, timings
-  teams        team: id, name, consent version
+Reads only the snapshot. Each row of data/games.parquet is a whole game: team, case, verdict, score,
+coins per tool, the characters (name, hidden part, true and guessed role) and the transcript in order
+(questions with answers and the model's reasoning, talk lines, reasoning inspections).
+Full model calls (prompts, retries) stay in raw/<event>/traces/.
 """
 import argparse
 import glob
@@ -24,15 +22,33 @@ import pyarrow.parquet as pq
 
 VOIDS_FILE = os.path.join(os.path.dirname(__file__), '..', 'server', 'leaderboard-voids.json')
 
+CHARACTER = pa.struct([
+    ('id', pa.string()), ('name', pa.string()), ('label', pa.string()), ('part', pa.string()),
+    ('true_role', pa.string()), ('guessed_role', pa.string()), ('correct', pa.bool_()),
+])
+TURN = pa.struct([
+    ('t_ms', pa.int64()), ('timestamp', pa.string()), ('type', pa.string()), ('character', pa.string()),
+    ('question', pa.string()), ('answer', pa.string()), ('reasoning', pa.string()), ('reasoning_inspected', pa.bool_()),
+    ('round', pa.int64()), ('text', pa.string()), ('coins', pa.int64()),
+    ('model', pa.string()), ('prompt_tokens', pa.int64()), ('completion_tokens', pa.int64()),
+    ('reasoning_tokens', pa.int64()), ('latency_ms', pa.int64()), ('finish_reason', pa.string()),
+])
+SCHEMA = pa.schema([
+    ('game_id', pa.string()), ('event', pa.string()), ('team_id', pa.string()), ('team_name', pa.string()),
+    ('case_id', pa.string()), ('case_version', pa.string()), ('model', pa.string()), ('app_commit', pa.string()),
+    ('started_at', pa.string()), ('ended_at', pa.string()), ('duration_ms', pa.int64()),
+    ('practice', pa.bool_()), ('leaderboard_counted', pa.bool_()), ('leaderboard_voided', pa.bool_()),
+    ('outcome', pa.string()), ('score', pa.int64()), ('total', pa.int64()), ('confidence', pa.int64()),
+    ('questions', pa.int64()), ('talk_rounds', pa.int64()), ('talk_lines', pa.int64()), ('reasoning_inspections', pa.int64()),
+    ('coins', pa.struct([('spent', pa.int64()), ('ask', pa.int64()), ('inspect', pa.int64()), ('talk', pa.int64())])),
+    ('characters', pa.list_(CHARACTER)), ('transcript', pa.list_(TURN)),
+])
+TURN_KEYS = [f.name for f in TURN]
+
 
 def read_jsonl(path):
-    rows = []
     with open(path, encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
-    return rows
+        return [json.loads(line) for line in f if line.strip()]
 
 
 def name_of(messages):
@@ -42,8 +58,8 @@ def name_of(messages):
     return (m.group(1), m.group(2)) if m else (None, None)
 
 
-def jdump(value):
-    return None if value is None else json.dumps(value, ensure_ascii=False)
+def turn(**fields):
+    return {k: fields.get(k) for k in TURN_KEYS}
 
 
 def export(event_dir, out):
@@ -51,190 +67,167 @@ def export(event_dir, out):
     voids = json.load(open(VOIDS_FILE, encoding='utf-8')) if os.path.exists(VOIDS_FILE) else []
     voided = {v['sessionId'] for v in voids}
     counted_instead = {v['countInstead'] for v in voids if v.get('countInstead')}
-
-    teams = {}
-    for r in read_jsonl(os.path.join(event_dir, 'teams.jsonl')):
-        if r.get('type') == 'team_created':
-            teams[r['teamId']] = {'team_id': r['teamId'], 'team_name': r['name'], 'consent': r.get('consent'), 'created_at': r['timestamp']}
+    teams = {r['teamId'] for r in read_jsonl(os.path.join(event_dir, 'teams.jsonl')) if r.get('type') == 'team_created'}
 
     traces = {}
     for f in glob.glob(os.path.join(event_dir, 'traces', '*.jsonl')):
         for t in read_jsonl(f):
             traces[t['traceId']] = t
-
-    games, interviews, talk, calls = [], [], [], []
-    names = {}  # (session, character) -> (name, label)
+    trace_by_question = {}  # question event -> (name, label) of the character the model played
     for t in traces.values():
-        msgs = t['request'].get('messages') or []
-        call_char = None
-        name, label = name_of(msgs)
-        calls.append({
-            'trace_id': t['traceId'], 'game_id': t.get('sessionId'), 'question_event_id': t.get('questionEventId'),
-            'kind': 'interview' if t.get('questionEventId') else 'talk', 'attempt': t.get('attempt'),
-            'timestamp': t['timestamp'], 'endpoint': t.get('endpoint'), 'model': t['request'].get('model'),
-            'character_name': name, 'character_label': label,
-            'params': jdump(t['request'].get('params')), 'messages': jdump(msgs),
-            'system_prompt': next((m['content'] for m in msgs if m.get('role') == 'system'), None),
-            'response_content': (t.get('response') or {}).get('content'),
-            'response_reasoning': (t.get('response') or {}).get('reasoning'),
-            'finish_reason': (t.get('response') or {}).get('finishReason'),
-            'usage': jdump((t.get('response') or {}).get('usage')),
-            'provider_status': t.get('providerStatus'), 'error': t.get('error'),
-            'queue_ms': t.get('queueMs'), 'duration_ms': t.get('durationMs'),
-        })
-        if t.get('sessionId') and name:
-            names.setdefault(t['sessionId'], {})
-            names[t['sessionId']].setdefault(name, label)
+        if t.get('questionEventId'):
+            trace_by_question[t['questionEventId']] = name_of(t['request'].get('messages') or [])
 
-    first_verdict = {}  # (team, case) -> (ms, session): which verdict the leaderboard counts
+    games, first_verdict = [], {}  # first_verdict: (team, case) -> (ms, game) the leaderboard counts
     for f in sorted(glob.glob(os.path.join(event_dir, 'sessions', '*.jsonl'))):
-        ev = read_jsonl(f)
+        ev = sorted(read_jsonl(f), key=lambda e: e['sequence'])
         st = next(e for e in ev if e['type'] == 'session_started')
         sid, case = st['sessionId'], st['caseId']
         team = st.get('team') or {}
         cast = st.get('cast') or {}
         verdict_ev = next((e for e in ev if e['type'] == 'verdict_submitted'), None)
         v = (verdict_ev or {}).get('verdict') or {}
-        truth = v.get('truth') or {}
-        q_by_id = {e['eventId']: e for e in ev if e['type'] == 'interview_question'}
+        truth, guessed, results = v.get('truth') or {}, v.get('roles') or {}, v.get('results') or {}
+        questions = {e['eventId']: e for e in ev if e['type'] == 'interview_question'}
         inspected = {e.get('sourceEventId') for e in ev if e['type'] == 'reasoning_inspected'}
         provider = {e.get('questionEventId'): e for e in ev if e['type'] == 'interview_provider_response'}
-        for a in (e for e in ev if e['type'] == 'interview_answer'):
-            q = q_by_id.get(a.get('questionEventId'), {})
-            p = a.get('provenance') or {}
-            pr = provider.get(a.get('questionEventId'), {})
-            # The game log holds reasoning only once a team inspects it; the answer's own trace always has it.
-            answered = next((traces[t] for t in reversed(p.get('traceIds') or []) if t in traces), None)
-            reasoning = a.get('reasoning') or ((answered or {}).get('response') or {}).get('reasoning')
-            interviews.append({
-                'game_id': sid, 'team_id': team.get('id'), 'case_id': case, 'character_id': a.get('character'),
-                'part': cast.get(a.get('character')), 'role': truth.get(a.get('character')),
-                'question_event_id': a.get('questionEventId'), 'answer_event_id': a['eventId'],
-                'asked_at': q.get('timestamp'), 'answered_at': a['timestamp'], 'elapsed_ms': a.get('elapsedMs'),
-                'question': a.get('question'), 'answer': a.get('answer'), 'reasoning': reasoning,
-                'reasoning_inspected': a['eventId'] in inspected,
-                'endpoint': p.get('endpoint'), 'model': p.get('providerModel'), 'attempts': p.get('attempts'),
-                'prompt_tokens': p.get('promptTokens'), 'completion_tokens': p.get('completionTokens'),
-                'reasoning_tokens': p.get('reasoningTokens'), 'duration_ms': p.get('durationMs'),
-                'finish_reason': pr.get('finishReason'), 'trace_ids': p.get('traceIds') or [],
-            })
-        for c in (e for e in ev if e['type'] == 'chatter_line'):
-            talk.append({
-                'game_id': sid, 'team_id': team.get('id'), 'case_id': case, 'round': c.get('round'),
-                'character_id': c.get('character'), 'part': cast.get(c.get('character')), 'role': truth.get(c.get('character')),
-                'timestamp': c['timestamp'], 'elapsed_ms': c.get('elapsedMs'), 'text': c.get('text'),
-            })
-        game_names = names.get(sid, {})
+        answer_char = {e['eventId']: e.get('character') for e in ev if e['type'] == 'interview_answer'}
+        names = {}
+        coins = {'ask': 0, 'inspect': 0, 'talk': 0}
+        transcript = []
+        for e in ev:
+            spend = (e.get('spend') or {}).get('cost') or 0
+            if e['type'] == 'interview_answer':
+                p = e.get('provenance') or {}
+                # The game log holds reasoning only once a team inspects it; the answer's own trace always has it.
+                trace = next((traces[t] for t in reversed(p.get('traceIds') or []) if t in traces), None)
+                names.setdefault(e.get('character'), trace_by_question.get(e.get('questionEventId'), (None, None)))
+                coins['ask'] += spend
+                transcript.append(turn(
+                    t_ms=e.get('elapsedMs'), timestamp=e['timestamp'], type='question', character=e.get('character'),
+                    question=e.get('question') or (questions.get(e.get('questionEventId')) or {}).get('question'),
+                    answer=e.get('answer'), reasoning=e.get('reasoning') or ((trace or {}).get('response') or {}).get('reasoning'),
+                    reasoning_inspected=e['eventId'] in inspected, coins=spend, model=p.get('providerModel'),
+                    prompt_tokens=p.get('promptTokens'), completion_tokens=p.get('completionTokens'),
+                    reasoning_tokens=p.get('reasoningTokens'), latency_ms=p.get('durationMs'),
+                    finish_reason=(provider.get(e.get('questionEventId')) or {}).get('finishReason')))
+            elif e['type'] == 'chatter_line':
+                coins['talk'] += spend
+                transcript.append(turn(t_ms=e.get('elapsedMs'), timestamp=e['timestamp'], type='talk', character=e.get('character'),
+                                       round=e.get('round'), text=e.get('text'), coins=spend))
+            elif e['type'] == 'reasoning_inspected':
+                coins['inspect'] += spend
+                transcript.append(turn(t_ms=e.get('elapsedMs'), timestamp=e['timestamp'], type='inspect',
+                                       character=e.get('character') or answer_char.get(e.get('sourceEventId')), coins=spend))
+
         practice = bool(st.get('practice'))
         outcome = None if not verdict_ev else ('timed_out' if v.get('outcome') == 'escaped' else 'verdict')
         if verdict_ev and team.get('id') and ((not practice) or sid in counted_instead) and sid not in voided:
-            key = (team['id'], case)
-            ms = verdict_ev['timestamp']
+            key, ms = (team['id'], case), verdict_ev['timestamp']
             if key not in first_verdict or ms < first_verdict[key][0]:
                 first_verdict[key] = (ms, sid)
+        ids = list(cast) or list(truth)
         games.append({
-            'game_id': sid, 'team_id': team.get('id'), 'team_name': team.get('name'), 'event': st.get('env'),
-            'case_id': case, 'case_version': st.get('caseVersion'), 'content_hash': st.get('contentHash'),
-            'prompt_version': st.get('promptVersion'), 'model': st.get('model'), 'app_commit': st.get('appCommit'),
+            'game_id': sid, 'event': st.get('env'), 'team_id': team.get('id'), 'team_name': team.get('name'),
+            'case_id': case, 'case_version': st.get('caseVersion'), 'model': st.get('model'), 'app_commit': st.get('appCommit'),
             'started_at': st['timestamp'], 'ended_at': (verdict_ev or {}).get('timestamp'),
             'duration_ms': (verdict_ev or {}).get('elapsedMs'), 'practice': practice,
+            'leaderboard_counted': False, 'leaderboard_voided': sid in voided,
             'outcome': outcome, 'score': v.get('score'), 'total': v.get('total'), 'confidence': v.get('confidence'),
-            'roles_guessed': jdump(v.get('roles')), 'roles_true': jdump(truth), 'cast_parts': jdump(cast),
-            'character_names': jdump(game_names),
-            'questions': sum(e['type'] == 'interview_question' for e in ev),
-            'reasoning_inspections': sum(e['type'] == 'reasoning_inspected' for e in ev),
-            'talk_lines': sum(e['type'] == 'chatter_line' for e in ev),
-            'coins_spent': ((verdict_ev or {}).get('coins') or {}).get('spent'),
-            'leaderboard_voided': sid in voided, 'leaderboard_counted': False,
+            'questions': sum(t['type'] == 'question' for t in transcript),
+            'talk_rounds': len({t['round'] for t in transcript if t['type'] == 'talk'}),
+            'talk_lines': sum(t['type'] == 'talk' for t in transcript),
+            'reasoning_inspections': sum(t['type'] == 'inspect' for t in transcript),
+            'coins': {'spent': ((verdict_ev or {}).get('coins') or {}).get('spent'), **coins},
+            'characters': [{'id': c, 'name': names.get(c, (None, None))[0], 'label': names.get(c, (None, None))[1],
+                            'part': cast.get(c), 'true_role': truth.get(c), 'guessed_role': guessed.get(c),
+                            'correct': results.get(c)} for c in ids],
+            'transcript': transcript,
         })
     counted = {s for _, s in first_verdict.values()}
     for g in games:
         g['leaderboard_counted'] = g['game_id'] in counted
+    games.sort(key=lambda g: g['started_at'])
 
-    os.makedirs(out, exist_ok=True)
-    data = os.path.join(out, 'data')
-    os.makedirs(data, exist_ok=True)
-    tables = {'games': games, 'interviews': interviews, 'talk_lines': talk, 'llm_calls': calls, 'teams': list(teams.values())}
-    for name, rows in tables.items():
-        rows.sort(key=lambda r: tuple(str(r.get(k) or '') for k in ('game_id', 'asked_at', 'timestamp', 'started_at', 'created_at')))
-        pq.write_table(pa.Table.from_pylist(rows), os.path.join(data, f'{name}.parquet'))
+    if os.path.exists(out):
+        shutil.rmtree(out)
+    os.makedirs(os.path.join(out, 'data'))
+    pq.write_table(pa.Table.from_pylist(games, schema=SCHEMA), os.path.join(out, 'data', 'games.parquet'))
 
     raw = os.path.join(out, 'raw', event)
-    if os.path.exists(raw):
-        shutil.rmtree(raw)
     shutil.copytree(event_dir, raw, ignore=shutil.ignore_patterns('content'))
-    sums = []
-    for f in sorted(glob.glob(os.path.join(raw, '**', '*.jsonl'), recursive=True)):
-        sums.append(f'{hashlib.sha256(open(f, "rb").read()).hexdigest()}  {os.path.relpath(f, raw)}')
+    sums = [f'{hashlib.sha256(open(f, "rb").read()).hexdigest()}  {os.path.relpath(f, raw)}'
+            for f in sorted(glob.glob(os.path.join(raw, '**', '*.jsonl'), recursive=True))]
     open(os.path.join(raw, 'SHA256SUMS'), 'w').write('\n'.join(sums) + '\n')
 
-    stats = summarize(games, interviews, talk, calls, teams)
-    json.dump(stats, open(os.path.join(out, 'stats.json'), 'w'), ensure_ascii=False, indent=2)
+    stats = summarize(games, teams, traces)
     open(os.path.join(out, 'README.md'), 'w', encoding='utf-8').write(card(event, stats, voids))
     return stats
 
 
-def summarize(games, interviews, talk, calls, teams):
-    cases = sorted({g['case_id'] for g in games})
-    counted = [g for g in games if g['leaderboard_counted']]
-    per_case = {}
-    for c in cases:
-        gs = [g for g in counted if g['case_id'] == c]
-        per_case[c] = {
-            'games': sum(g['case_id'] == c for g in games), 'counted': len(gs),
-            'avg_score': round(sum(g['score'] or 0 for g in gs) / len(gs), 2) if gs else None,
-            'total': gs[0]['total'] if gs else None,
-            'perfect': sum(1 for g in gs if g['score'] == g['total']),
-            'timed_out': sum(1 for g in games if g['case_id'] == c and g['outcome'] == 'timed_out'),
-            'questions': sum(1 for i in interviews if i['case_id'] == c),
-        }
-    durations = sorted(c['duration_ms'] for c in calls if c['duration_ms'] is not None and not c['error'])
-    q = lambda p: durations[min(len(durations) - 1, int(p * len(durations)))] if durations else None
-    board = {}
-    for g in counted:
-        b = board.setdefault(g['team_id'], {'team': g['team_name'], 'points': 0, 'coins': 0, 'cases': 0})
-        b['points'] += g['score'] or 0
-        b['coins'] += g['coins_spent'] or 0
-        b['cases'] += 1
+def summarize(games, teams, traces):
+    turns = [t for g in games for t in g['transcript']]
     return {
-        'teams': len(teams), 'games': len(games), 'games_with_verdict': sum(1 for g in games if g['outcome']),
-        'questions': len(interviews), 'talk_lines': len(talk), 'llm_calls': len(calls),
-        'llm_errors': sum(1 for c in calls if c['error']),
-        'reasoning_inspections': sum(g['reasoning_inspections'] for g in games),
-        'models': sorted({c['model'] for c in calls if c['model']}),
-        'llm_latency_ms': {'p50': q(.5), 'p90': q(.9), 'max': durations[-1] if durations else None},
-        'first_event': min(g['started_at'] for g in games), 'last_event': max((g['ended_at'] or g['started_at']) for g in games),
-        'per_case': per_case,
-        'leaderboard': sorted(board.values(), key=lambda b: (-b['points'], b['coins'], b['team'])),
+        'teams': len(teams), 'games': len(games), 'counted': sum(g['leaderboard_counted'] for g in games),
+        'questions': sum(t['type'] == 'question' for t in turns), 'talk_lines': sum(t['type'] == 'talk' for t in turns),
+        'talk_rounds': sum(g['talk_rounds'] for g in games), 'reasoning_inspections': sum(t['type'] == 'inspect' for t in turns),
+        'llm_calls': len(traces), 'llm_errors': sum(1 for t in traces.values() if t.get('error')),
+        'models': sorted({g['model'] for g in games if g['model']}),
+        'cases': sorted({g['case_id'] for g in games}),
     }
 
 
 def card(event, s, voids):
+    split = event.replace('-', '_')
     lines = [
         '---',
         'pretty_name: Arbiter · IMADA Cup traces',
         'language: [en]',
         'tags: [llm, deception, interrogation, game, traces]',
         'configs:',
+        '- config_name: default',
+        '  data_files:',
+        f'  - split: {split}',
+        '    path: data/games.parquet',
+        '---', '',
+        '# Arbiter · IMADA Cup traces', '',
+        f'Game logs from **{event}**: teams questioned AI characters in *The Arbiter*, a detective game where some characters hide a secret role, and then named each character\'s role.', '',
+        f"**{s['teams']} teams · {s['games']} games ({s['counted']} counted on the leaderboard) · {s['questions']} questions · "
+        f"{s['talk_rounds']} talk rounds ({s['talk_lines']} lines) · {s['reasoning_inspections']} reasoning inspections** · model: {', '.join(s['models'])}", '',
+        '## Load it', '',
+        '```python',
+        'import pandas as pd',
+        'from datasets import load_dataset',
+        f'games = load_dataset("aisilab/arbiter-imadacup-traces", split="{split}")',
+        '',
+        '# one row per transcript turn, with the speaker\'s true role',
+        'turns = pd.DataFrame([',
+        '    {"game_id": g["game_id"], "case_id": g["case_id"], **t,',
+        '     "true_role": {c["id"]: c["true_role"] for c in g["characters"]}.get(t["character"])}',
+        '    for g in games for t in g["transcript"]])',
+        'answers = turns[turns.type == "question"]',
+        '```', '',
+        '## One row per game', '',
+        '| column | what it holds |', '|---|---|',
+        '| `game_id`, `event`, `team_id`, `team_name` | who played |',
+        '| `case_id`, `case_version`, `model`, `app_commit` | what they played, and on which build |',
+        '| `started_at`, `ended_at`, `duration_ms` | timing (`duration_ms` is time to verdict) |',
+        '| `practice`, `leaderboard_counted`, `leaderboard_voided` | whether the game scored: only each team\'s first non-practice verdict per case counts |',
+        '| `outcome` | `verdict`, `timed_out` (the case clock ran out), or empty (game abandoned) |',
+        '| `score`, `total`, `confidence` | roles named right, out of how many; the team\'s own confidence (0–100) |',
+        '| `questions`, `talk_rounds`, `talk_lines`, `reasoning_inspections` | tool use |',
+        '| `coins` | `{spent, ask, inspect, talk}`: questions cost 1, an inspection 3, a talk round 2 |',
+        '| `characters` | list of `{id, name, label, part, true_role, guessed_role, correct}`. `part` is the hidden script the character was dealt; `name`/`label` are what players saw (empty if never questioned) |',
+        '| `transcript` | the game in order: `type` is `question` (question, answer, the model\'s reasoning, whether it was inspected, tokens, latency), `talk` (round, text) or `inspect`; `t_ms` is time since the game started |', '',
+        f'`raw/{event}/` holds the original logs with SHA256SUMS: `sessions/` (every game event), `traces/` (all {s["llm_calls"]} model calls with full prompts), `teams.jsonl`.', '',
+        '## Consent', '',
+        'Every team ticked the check-in box (`research-public-v1`): "I agree that our team name, questions and answers are saved, used in research and made public." No IP addresses, emails or real names are collected; teams chose their own names.', '',
+        '## Known issues', '',
+        '- `reasoning` is filled for every answer, also ones the team never inspected; use `reasoning_inspected` for what players saw.',
+        '- Clocking Out\'s 10-minute clock kept running while a team played another case, so a game could time out with no questions (`outcome = timed_out`).',
+        '- Clocking Out reasoning is written in ROT13 on purpose (a game mechanic).',
+        '- Games started after 17:45 UTC on 2026-11-20 record `app_commit` 6fcf60d but ran 830ac4a (leaderboard fix only).',
     ]
-    for name in ('games', 'interviews', 'talk_lines', 'llm_calls', 'teams'):
-        lines += [f'- config_name: {name}', '  data_files:', f'  - split: {event.replace("-", "_")}', f'    path: data/{name}.parquet']
-    lines += ['---', '', '# Arbiter · IMADA Cup traces', '',
-              f'Game logs from **{event}**: teams questioned AI characters (one of them lying) in *The Arbiter* and named each character\'s role.', '',
-              '## Contents', '',
-              f"- **{s['teams']} teams**, **{s['games']} games**, **{s['questions']} questions**, {s['talk_lines']} talk lines, {s['llm_calls']} model calls ({', '.join(s['models'])}).",
-              '- `games`: one row per game, with guessed and true roles, score, coins and whether the leaderboard counted it.',
-              '- `interviews`: one row per question, with the character\'s hidden part and role, the answer and the model\'s reasoning.',
-              '- `talk_lines`: the characters\' "Let them talk" posts.',
-              '- `llm_calls`: every model call, with the full prompt, reply, reasoning and timings.',
-              '- `teams`: team id, name and consent version.',
-              f'- `raw/{event}/`: the original JSONL logs, with SHA256SUMS.', '',
-              '## Consent', '',
-              'Every team ticked the check-in box (`research-public-v1`): "I agree that our team name, questions and answers are saved, used in research and made public." No IP addresses, emails or real names are collected.', '',
-              '## Known issues', '',
-              '- Clocking Out\'s 10-minute clock kept running while a team played another case; a game could time out with no questions (`outcome = timed_out`).',
-              '- Clocking Out reasoning is written in ROT13 on purpose (a game mechanic).',
-              '- Games started after 17:45 UTC on 2026-11-20 record `app_commit` 6fcf60d but ran 830ac4a (leaderboard fix only).']
     for v in voids:
         lines.append(f"- Leaderboard correction for {v.get('team')}: game {v['sessionId']} voided, {v.get('countInstead')} counted instead. {v.get('reason', '')}")
     lines += ['', 'Internal for now: no license chosen yet.', '']
@@ -244,15 +237,15 @@ def card(event, s, voids):
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--event-dir', required=True)
-    ap.add_argument('--out', required=True)
-    ap.add_argument('--push', help='Hugging Face repo id, e.g. my-org/arbiter-imadacup-traces (created private)')
+    ap.add_argument('--out', required=True, help='output folder (replaced)')
+    ap.add_argument('--push', help='Hugging Face repo id, e.g. aisilab/arbiter-imadacup-traces (created private)')
     a = ap.parse_args()
     stats = export(a.event_dir, a.out)
-    print(json.dumps({k: stats[k] for k in ('teams', 'games', 'questions', 'talk_lines', 'llm_calls', 'llm_errors')}))
+    print(json.dumps(stats))
     if a.push:
         from huggingface_hub import HfApi
         api = HfApi()
         api.create_repo(a.push, repo_type='dataset', private=True, exist_ok=True)
-        api.upload_folder(repo_id=a.push, repo_type='dataset', folder_path=a.out, ignore_patterns=['stats.json'],
-                          commit_message=f'Add {os.path.basename(os.path.normpath(a.event_dir))}')
+        api.upload_folder(repo_id=a.push, repo_type='dataset', folder_path=a.out, delete_patterns=['*'],
+                          commit_message=f'Add {os.path.basename(os.path.normpath(a.event_dir))}: one row per game')
         print(f'pushed (private): https://huggingface.co/datasets/{a.push}')
